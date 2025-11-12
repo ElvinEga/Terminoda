@@ -1,49 +1,61 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { Terminal } from './components/Terminal';
+import { Button } from './components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+interface Session {
+  id: string;
+}
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [activeTab, setActiveTab] = useState<string | undefined>();
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const createNewSession = async () => {
+    try {
+      const newSessionId = await invoke<string>('create_new_session');
+      console.log('Received new session ID from backend:', newSessionId);
+
+      const newSession = { id: newSessionId };
+      setSessions(prevSessions => [...prevSessions, newSession]);
+      setActiveTab(newSessionId);
+    } catch (error) {
+      console.error("Failed to create new session:", error);
+    }
+  };
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <main className="flex flex-col h-screen bg-[#21222C] text-white">
+      <div className="flex-grow flex flex-col">
+        {sessions.length > 0 ? (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+            <div className="flex items-center p-2 border-b border-gray-700">
+              <TabsList>
+                {sessions.map((session) => (
+                  <TabsTrigger key={session.id} value={session.id}>
+                    Session {session.id.substring(0, 8)}...
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <Button onClick={createNewSession} className="ml-4">+</Button>
+            </div>
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+            {sessions.map((session) => (
+              <TabsContent key={session.id} value={session.id} className="flex-grow">
+                <Terminal sessionId={session.id} />
+              </TabsContent>
+            ))}
+          </Tabs>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <h1 className="text-2xl mb-4">Taurius SSH Client</h1>
+              <Button onClick={createNewSession} size="lg">Start New Session</Button>
+            </div>
+          </div>
+        )}
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
     </main>
   );
 }
