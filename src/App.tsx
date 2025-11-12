@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { Terminal } from './components/Terminal';
-import { Button } from './components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConnectionDialog } from './components/ConnectionDialog';
 
 interface Session {
   id: string;
@@ -12,17 +11,11 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeTab, setActiveTab] = useState<string | undefined>();
 
-  const createNewSession = async () => {
-    try {
-      const newSessionId = await invoke<string>('create_new_session');
-      console.log('Received new session ID from backend:', newSessionId);
-
-      const newSession = { id: newSessionId };
-      setSessions(prevSessions => [...prevSessions, newSession]);
-      setActiveTab(newSessionId);
-    } catch (error) {
-      console.error("Failed to create new session:", error);
-    }
+  const handleNewConnection = (sessionId: string) => {
+    console.log('Successfully connected. New session ID:', sessionId);
+    const newSession = { id: sessionId };
+    setSessions(prevSessions => [...prevSessions, newSession]);
+    setActiveTab(sessionId);
   };
 
   return (
@@ -30,7 +23,7 @@ function App() {
       <div className="flex-grow flex flex-col">
         {sessions.length > 0 ? (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-            <div className="flex items-center p-2 border-b border-gray-700">
+            <div className="flex items-center p-2 border-b border-gray-700 bg-[#282a36]">
               <TabsList>
                 {sessions.map((session) => (
                   <TabsTrigger key={session.id} value={session.id}>
@@ -38,20 +31,22 @@ function App() {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <Button onClick={createNewSession} className="ml-4">+</Button>
+              <div className="ml-4">
+                <ConnectionDialog onConnect={handleNewConnection} />
+              </div>
             </div>
 
             {sessions.map((session) => (
-              <TabsContent key={session.id} value={session.id} className="flex-grow">
+              <TabsContent key={session.id} value={session.id} className="flex-grow p-1">
                 <Terminal sessionId={session.id} />
               </TabsContent>
             ))}
           </Tabs>
         ) : (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center h-full bg-[#282a36]">
             <div className="text-center">
               <h1 className="text-2xl mb-4">Taurius SSH Client</h1>
-              <Button onClick={createNewSession} size="lg">Start New Session</Button>
+              <ConnectionDialog onConnect={handleNewConnection} />
             </div>
           </div>
         )}
