@@ -62,6 +62,12 @@ export function Terminal({ sessionId }: TerminalProps) {
     xtermRef.current = xterm;
     xterm.focus();
 
+    const sendResize = (rows: number, cols: number) => {
+      invoke('resize_terminal', { sessionId, rows, cols }).catch(console.error);
+    };
+
+    sendResize(xterm.rows, xterm.cols);
+
     let unlistener: (() => void) | null = null;
 
     listen<TerminalOutputPayload>('terminal-output', (event) => {
@@ -76,6 +82,10 @@ export function Terminal({ sessionId }: TerminalProps) {
       invoke('send_terminal_input', { sessionId, data }).catch(console.error);
     });
 
+    const resizeListener = xterm.onResize((size) => {
+      sendResize(size.rows, size.cols);
+    });
+
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit();
     });
@@ -87,6 +97,7 @@ export function Terminal({ sessionId }: TerminalProps) {
       if (unlistener) {
         unlistener();
       }
+      resizeListener.dispose();
       onDataListener.dispose();
       resizeObserver.disconnect();
       xterm.dispose();
