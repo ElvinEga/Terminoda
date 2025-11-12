@@ -6,7 +6,7 @@ use std::io::Write;
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use tauri::{Manager, State, Window};
+use tauri::{Emitter, State, Window};
 use uuid::Uuid;
 
 pub struct SessionState {
@@ -51,7 +51,7 @@ fn connect_ssh(
     let addr = format!("{}:{}", host, port);
 
     let tcp = TcpStream::connect(&addr).map_err(|e| e.to_string())?;
-    let mut sess = Session::new().ok_or("Failed to create session")?;
+    let mut sess = Session::new().map_err(|e| e.to_string())?;
     sess.set_tcp_stream(tcp);
 
     sess.handshake().map_err(|e| e.to_string())?;
