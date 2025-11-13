@@ -60,25 +60,30 @@ function App() {
         {sessions.length > 0 ? (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
             <div className="flex items-center border-b border-gray-700 bg-[#21222C]">
-              <div className="flex items-center">
+              <TabsList className="h-auto rounded-none bg-transparent p-0 gap-0">
                 {sessions.map((session) => (
-                  <div key={session.id} className="flex items-center group">
+                  <div key={session.id} className="flex items-center group relative">
                     <TabsTrigger 
                       value={session.id}
-                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 pr-1"
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 pr-8"
                     >
                       {session.name}
                     </TabsTrigger>
-                    <button
-                      onClick={() => handleCloseTab(session.id)}
-                      className="px-2 py-1 ml-1 mr-2 hover:text-red-400 opacity-60 hover:opacity-100"
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCloseTab(session.id);
+                      }}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 p-1 hover:text-red-400 opacity-60 hover:opacity-100 cursor-pointer"
+                      role="button"
+                      tabIndex={-1}
                       aria-label={`Close ${session.name}`}
                     >
                       <X className="h-3 w-3" />
-                    </button>
+                    </div>
                   </div>
                 ))}
-              </div>
+              </TabsList>
             </div>
             {sessions.map((session) => (
               <TabsContent key={session.id} value={session.id} className="flex-grow p-0">
