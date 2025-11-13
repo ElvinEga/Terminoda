@@ -111,7 +111,16 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
 
   async function onSubmit(values: FormValues) {
     setSaveError(null);
-    const { name, ...details } = values;
+    const { name, authMethod, ...baseDetails } = values;
+
+    const details = {
+      ...baseDetails,
+      // Only include password if using password auth
+      password: authMethod === "password" ? baseDetails.password : undefined,
+      // Only include key-related fields if using key auth
+      private_key_path: authMethod === "key" ? baseDetails.private_key_path : undefined,
+      passphrase: authMethod === "key" ? baseDetails.passphrase : undefined,
+    };
 
     const promise = isEditing && editingHost
       ? invoke("update_host", { updatedHost: { id: editingHost.id, name, details } })
