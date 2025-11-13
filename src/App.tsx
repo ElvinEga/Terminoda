@@ -60,26 +60,25 @@ function App() {
         {sessions.length > 0 ? (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
             <div className="flex items-center border-b border-gray-700 bg-[#21222C]">
-              <TabsList className="rounded-none bg-transparent">
+              <div className="flex items-center">
                 {sessions.map((session) => (
-                  <TabsTrigger 
-                    key={session.id} 
-                    value={session.id}
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500"
-                  >
-                    <span className="mr-2">{session.name}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCloseTab(session.id);
-                      }}
-                      className="ml-1 hover:text-red-400"
+                  <div key={session.id} className="flex items-center group">
+                    <TabsTrigger 
+                      value={session.id}
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 pr-1"
                     >
-                      <X className="h-4 w-4" />
+                      {session.name}
+                    </TabsTrigger>
+                    <button
+                      onClick={() => handleCloseTab(session.id)}
+                      className="px-2 py-1 ml-1 mr-2 hover:text-red-400 opacity-60 hover:opacity-100"
+                      aria-label={`Close ${session.name}`}
+                    >
+                      <X className="h-3 w-3" />
                     </button>
-                  </TabsTrigger>
+                  </div>
                 ))}
-              </TabsList>
+              </div>
             </div>
             {sessions.map((session) => (
               <TabsContent key={session.id} value={session.id} className="flex-grow p-0">
