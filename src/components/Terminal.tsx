@@ -69,14 +69,25 @@ export function Terminal({ sessionId }: TerminalProps) {
     sendResize(xterm.rows, xterm.cols);
 
     let unlistener: (() => void) | null = null;
+    let isActive = true;
 
-    listen<TerminalOutputPayload>('terminal-output', (event) => {
-      if (event.payload.session_id === sessionId) {
-        xterm.write(new Uint8Array(event.payload.data));
+    const setupListener = async () => {
+      try {
+        unlistener = await listen<TerminalOutputPayload>('terminal-output', (event) => {
+          if (isActive && event.payload.session_id === sessionId && xtermRef.current) {
+            try {
+              xtermRef.current.write(new Uint8Array(event.payload.data));
+            } catch (error) {
+              console.error('Error writing to terminal:', error);
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error setting up terminal listener:', error);
       }
-    }).then(unlisten => {
-      unlistener = unlisten;
-    });
+    };
+
+    setupListener();
 
     const onDataListener = xterm.onData((data) => {
       invoke('send_terminal_input', { sessionId, data }).catch(console.error);
@@ -87,13 +98,16 @@ export function Terminal({ sessionId }: TerminalProps) {
     });
 
     const resizeObserver = new ResizeObserver(() => {
-      fitAddon.fit();
+      if (fitAddon && termRef.current) {
+        fitAddon.fit();
+      }
     });
     if (termRef.current.parentElement) {
       resizeObserver.observe(termRef.current.parentElement);
     }
 
     return () => {
+      isActive = false;
       if (unlistener) {
         unlistener();
       }
