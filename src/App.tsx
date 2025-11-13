@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { Toaster, toast } from 'sonner';
 import { Terminal } from './components/Terminal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VaultSidebar, ConnectionDetails } from './components/VaultSidebar';
@@ -8,31 +9,45 @@ import { X } from 'lucide-react';
 interface Session {
   id: string;
   host: string;
+  name: string;
 }
 
 function App() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeTab, setActiveTab] = useState<string | undefined>();
 
-  const handleConnect = async (details: ConnectionDetails) => {
-    try {
-      const newSessionId = await invoke<string>('connect_ssh', { details });
-      const newSession: Session = {
-        id: newSessionId,
-        host: details.host,
-      };
-      setSessions(prev => [...prev, newSession]);
-      setActiveTab(newSessionId);
-    } catch (error) {
-      console.error("Failed to connect:", error);
-    }
+  const handleConnect = async (details: ConnectionDetails, name: string) => {
+    toast.promise(
+      invoke<string>('connect_ssh', { details }),
+      {
+        loading: `Connecting to ${details.host}...`,
+        success: (newSessionId) => {
+          const newSession: Session = {
+            id: newSessionId,
+            host: details.host,
+            name,
+          };
+          setSessions(prev => [...prev, newSession]);
+          setActiveTab(newSessionId);
+          return `Connected to ${name}!`;
+        },
+        error: (err) => `Connection failed: ${err}`,
+      }
+    );
   };
 
-  const handleCloseTab = (sessionId: string) => {
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
-    if (activeTab === sessionId) {
-      const remaining = sessions.filter(s => s.id !== sessionId);
-      setActiveTab(remaining.length > 0 ? remaining[0].id : undefined);
+  const handleCloseTab = async (sessionId: string) => {
+    try {
+      await invoke('close_session', { sessionId });
+    } catch (error) {
+      console.error("Failed to close session on backend:", error);
+      toast.error("Failed to properly close session.");
+    } finally {
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      if (activeTab === sessionId) {
+        const remaining = sessions.filter(s => s.id !== sessionId);
+        setActiveTab(remaining.length > 0 ? remaining[0].id : undefined);
+      }
     }
   };
 
@@ -51,7 +66,7 @@ function App() {
                     value={session.id}
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500"
                   >
-                    <span className="mr-2">{session.host}</span>
+                    <span className="mr-2">{session.name}</span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -79,6 +94,8 @@ function App() {
           </div>
         )}
       </div>
+      
+      <Toaster theme="dark" />
     </main>
   );
 }

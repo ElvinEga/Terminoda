@@ -28,24 +28,24 @@ impl Default for AppState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ConnectionDetails {
-    host: String,
-    port: Option<u16>,
-    username: String,
-    password: Option<String>,
+pub struct ConnectionDetails {
+    pub host: String,
+    pub port: Option<u16>,
+    pub username: String,
+    pub password: Option<String>,
     #[serde(rename = "private_key_path")]
-    private_key_path: Option<String>,
-    passphrase: Option<String>,
+    pub private_key_path: Option<String>,
+    pub passphrase: Option<String>,
     #[serde(rename = "authMethod")]
     #[allow(dead_code)]
-    auth_method: Option<String>,
+    pub auth_method: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct SavedHost {
-    id: String,
-    name: String,
-    details: ConnectionDetails,
+pub struct SavedHost {
+    pub id: String,
+    pub name: String,
+    pub details: ConnectionDetails,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -239,6 +239,61 @@ fn save_new_host(
     Ok(new_host)
 }
 
+#[tauri::command]
+fn close_session(session_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    let uuid = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
+    
+    if let Some((_, session)) = state.sessions.remove(&uuid) {
+        let mut channel = session.channel.lock().unwrap();
+        if let Err(e) = channel.send_eof() {
+            eprintln!("Failed to send EOF for session {}: {}", session_id, e);
+        }
+        if let Err(e) = channel.close() {
+            eprintln!("Failed to close channel for session {}: {}", session_id, e);
+        }
+        if let Err(e) = channel.wait_close() {
+            eprintln!("Failed to wait for channel close for session {}: {}", session_id, e);
+        }
+        println!("Closed and removed session {}", session_id);
+    } else {
+        println!("Attempted to close non-existent session {}", session_id);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn update_host(
+    updated_host: SavedHost,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    let mut hosts = load_saved_hosts(app_handle.clone())?;
+    
+    if let Some(pos) = hosts.iter().position(|h| h.id == updated_host.id) {
+        hosts[pos] = updated_host;
+    } else {
+        return Err("Host to update not found".to_string());
+    }
+
+    let path = get_connections_path(&app_handle)?;
+    let content = serde_json::to_string_pretty(&hosts).map_err(|e| e.to_string())?;
+    fs::write(path, content).map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_host(host_id: String, app_handle: AppHandle) -> Result<(), String> {
+    let mut hosts = load_saved_hosts(app_handle.clone())?;
+    
+    hosts.retain(|h| h.id != host_id);
+
+    let path = get_connections_path(&app_handle)?;
+    let content = serde_json::to_string_pretty(&hosts).map_err(|e| e.to_string())?;
+    fs::write(path, content).map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -251,7 +306,10 @@ pub fn run() {
             send_terminal_input,
             resize_terminal,
             load_saved_hosts,
-            save_new_host
+            save_new_host,
+            close_session,
+            update_host,
+            delete_host
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

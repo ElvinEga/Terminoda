@@ -1,10 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { invoke } from "@tauri-apps/api/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import { useState } from "react"
-import { FolderOpen, PlusCircle } from "lucide-react"
+import { FolderOpen } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -22,7 +24,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { SavedHost } from "./VaultSidebar"
@@ -48,11 +49,13 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface ConnectionDialogProps {
-  onSave: (newHost: SavedHost) => void;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  onSave: (host: SavedHost, isEditing: boolean) => void;
+  editingHost: SavedHost | null;
 }
 
-export function ConnectionDialog({ onSave }: ConnectionDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: ConnectionDialogProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   
   const form = useForm<FormValues>({
@@ -67,7 +70,33 @@ export function ConnectionDialog({ onSave }: ConnectionDialogProps) {
       private_key_path: "",
       passphrase: "",
     },
-  })
+  });
+
+  const isEditing = !!editingHost;
+
+  useEffect(() => {
+    if (isOpen) {
+      if (isEditing && editingHost) {
+        form.reset({
+          name: editingHost.name,
+          ...editingHost.details,
+          authMethod: editingHost.details.private_key_path ? "key" : "password",
+        });
+      } else {
+        form.reset({
+          name: "",
+          host: "",
+          port: 22,
+          username: "",
+          authMethod: "password",
+          password: "",
+          private_key_path: "",
+          passphrase: "",
+        });
+      }
+      setSaveError(null);
+    }
+  }, [isOpen, editingHost, form, isEditing]);
 
   const handleFileSelect = async () => {
     const selected = await open({
@@ -82,31 +111,37 @@ export function ConnectionDialog({ onSave }: ConnectionDialogProps) {
 
   async function onSubmit(values: FormValues) {
     setSaveError(null);
-    try {
-      const { name, ...details } = values;
-      const newSavedHost = await invoke<SavedHost>('save_new_host', { name, details });
-      onSave(newSavedHost);
-      setIsOpen(false);
-      form.reset();
-    } catch (error) {
-      const errorMsg = typeof error === 'string' ? error : String(error);
-      console.error("Failed to save host:", errorMsg);
-      setSaveError(errorMsg);
-    }
+    const { name, ...details } = values;
+
+    const promise = isEditing && editingHost
+      ? invoke("update_host", { updatedHost: { id: editingHost.id, name, details } })
+      : invoke<SavedHost>("save_new_host", { name, details });
+
+    toast.promise(promise, {
+      loading: isEditing ? "Updating host..." : "Saving host...",
+      success: (result) => {
+        const savedData = isEditing
+          ? { id: editingHost!.id, name, details } as SavedHost
+          : result as SavedHost;
+        onSave(savedData, isEditing);
+        setIsOpen(false);
+        return isEditing ? "Host updated!" : "Host saved!";
+      },
+      error: (err) => {
+        const errorMsg = typeof err === 'string' ? err : String(err);
+        setSaveError(errorMsg);
+        return `Failed to save: ${errorMsg}`;
+      },
+    });
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button className="w-full">
-          <PlusCircle className="mr-2 h-4 w-4" /> New Host
-        </Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
-          <DialogTitle>Save New SSH Host</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Connection" : "New Connection"}</DialogTitle>
           <DialogDescription>
-            Enter host details and choose authentication method.
+            {isEditing ? "Update host details." : "Enter host details and choose authentication method."}
           </DialogDescription>
         </DialogHeader>
         
@@ -233,7 +268,7 @@ export function ConnectionDialog({ onSave }: ConnectionDialogProps) {
             )}
             
             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Saving..." : "Save Connection"}
+              {form.formState.isSubmitting ? "Saving..." : (isEditing ? "Update Connection" : "Save Connection")}
             </Button>
           </form>
         </Form>
