@@ -14,6 +14,7 @@ use uuid::Uuid;
 
 pub struct SessionState {
     pub channel: Arc<Mutex<ssh2::Channel>>,
+    pub session: Arc<Mutex<Session>>,
     pub sftp: Arc<Mutex<Option<Sftp>>>,
 }
 
@@ -108,14 +109,15 @@ fn connect_ssh(
         .map_err(|e| e.to_string())?;
     channel.shell().map_err(|e| e.to_string())?;
 
-    let sftp = sess.sftp().ok();
-
     let channel_arc = Arc::new(Mutex::new(channel));
+    let session_arc = Arc::new(Mutex::new(sess));
+    
     state.sessions.insert(
         session_id,
         SessionState {
             channel: channel_arc.clone(),
-            sftp: Arc::new(Mutex::new(sftp)),
+            session: session_arc.clone(),
+            sftp: Arc::new(Mutex::new(None)),
         },
     );
 
@@ -312,8 +314,23 @@ fn delete_host(host_id: String, app_handle: AppHandle) -> Result<(), String> {
 fn list_directory(session_id: String, path: String, state: State<'_, AppState>) -> Result<Vec<SftpFile>, String> {
     let uuid = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
     
-    if let Some(session) = state.sessions.get(&uuid) {
-        let sftp_lock = session.sftp.lock().unwrap();
+    if let Some(session_state) = state.sessions.get(&uuid) {
+        // Check if SFTP is already initialized
+        let mut sftp_lock = session_state.sftp.lock().unwrap();
+        
+        // Lazy initialization: create SFTP if it doesn't exist
+        if sftp_lock.is_none() {
+            let session_lock = session_state.session.lock().unwrap();
+            match session_lock.sftp() {
+                Ok(sftp) => {
+                    *sftp_lock = Some(sftp);
+                }
+                Err(e) => {
+                    return Err(format!("Failed to initialize SFTP: {}", e));
+                }
+            }
+        }
+        
         if let Some(sftp) = &*sftp_lock {
             let entries = sftp.readdir(PathBuf::from(&path).as_path()).map_err(|e| e.to_string())?;
             
