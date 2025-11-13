@@ -1,18 +1,20 @@
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use ssh2::Session;
+use ssh2::Sftp;
 use std::fs;
 use std::io::Read;
 use std::io::Write;
 use std::net::TcpStream;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tauri::{AppHandle, Emitter, State, Window};
 use uuid::Uuid;
 
 pub struct SessionState {
-    channel: Arc<Mutex<ssh2::Channel>>,
+    pub channel: Arc<Mutex<ssh2::Channel>>,
+    pub sftp: Arc<Mutex<Option<Sftp>>>,
 }
 
 pub struct AppState {
@@ -25,6 +27,15 @@ impl Default for AppState {
             sessions: Arc::new(DashMap::new()),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SftpFile {
+    pub name: String,
+    pub is_dir: bool,
+    pub size: u64,
+    pub permissions: String,
+    pub modified: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,11 +108,14 @@ fn connect_ssh(
         .map_err(|e| e.to_string())?;
     channel.shell().map_err(|e| e.to_string())?;
 
+    let sftp = sess.sftp().ok();
+
     let channel_arc = Arc::new(Mutex::new(channel));
     state.sessions.insert(
         session_id,
         SessionState {
             channel: channel_arc.clone(),
+            sftp: Arc::new(Mutex::new(sftp)),
         },
     );
 
@@ -294,6 +308,52 @@ fn delete_host(host_id: String, app_handle: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn list_directory(session_id: String, path: String, state: State<'_, AppState>) -> Result<Vec<SftpFile>, String> {
+    let uuid = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
+    
+    if let Some(session) = state.sessions.get(&uuid) {
+        let sftp_lock = session.sftp.lock().unwrap();
+        if let Some(sftp) = &*sftp_lock {
+            let entries = sftp.readdir(PathBuf::from(&path).as_path()).map_err(|e| e.to_string())?;
+            
+            let mut files: Vec<SftpFile> = entries.into_iter().map(|(entry_path, stat)| {
+                let name = entry_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                
+                let permissions = stat
+                    .perm
+                    .map(|p| format!("{:03o}", p))
+                    .unwrap_or_else(|| "---------".to_string());
+                
+                SftpFile {
+                    name,
+                    is_dir: stat.is_dir(),
+                    size: stat.size.unwrap_or(0),
+                    modified: stat.mtime.unwrap_or(0),
+                    permissions,
+                }
+            }).collect();
+
+            files.sort_by(|a, b| {
+                if a.is_dir != b.is_dir {
+                    return b.is_dir.cmp(&a.is_dir);
+                }
+                a.name.cmp(&b.name)
+            });
+
+            Ok(files)
+        } else {
+            Err("SFTP session not available".to_string())
+        }
+    } else {
+        Err("Session not found".to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -309,7 +369,8 @@ pub fn run() {
             save_new_host,
             close_session,
             update_host,
-            delete_host
+            delete_host,
+            list_directory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

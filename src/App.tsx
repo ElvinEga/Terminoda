@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Toaster, toast } from 'sonner';
-import { Terminal } from './components/Terminal';
+import { Terminal as TerminalComponent } from './components/Terminal';
+import { SftpBrowser } from './components/SftpBrowser';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VaultSidebar, ConnectionDetails } from './components/VaultSidebar';
-import { X } from 'lucide-react';
+import { X, Terminal, Files } from 'lucide-react';
 
 interface Session {
   id: string;
@@ -82,7 +83,24 @@ function App() {
             </div>
             {sessions.map((session) => (
               <TabsContent key={session.id} value={session.id} className="flex-grow p-0">
-                <Terminal sessionId={session.id} />
+                <Tabs defaultValue="terminal" className="h-full flex flex-col">
+                  <TabsList className="w-fit bg-[#21222C] border-b border-gray-700 rounded-none">
+                    <TabsTrigger value="terminal" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500">
+                      <Terminal className="h-4 w-4 mr-2" />
+                      Terminal
+                    </TabsTrigger>
+                    <TabsTrigger value="sftp" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500">
+                      <Files className="h-4 w-4 mr-2" />
+                      SFTP
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="terminal" className="flex-grow p-0 m-0">
+                    <TerminalComponent sessionId={session.id} />
+                  </TabsContent>
+                  <TabsContent value="sftp" className="flex-grow p-0 m-0">
+                    <SftpBrowser sessionId={session.id} />
+                  </TabsContent>
+                </Tabs>
               </TabsContent>
             ))}
           </Tabs>
