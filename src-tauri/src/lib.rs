@@ -1,13 +1,14 @@
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use ssh2::Session;
+use std::fs;
 use std::io::Read;
 use std::io::Write;
 use std::net::TcpStream;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use tauri::{Emitter, State, Window};
+use tauri::{AppHandle, Emitter, State, Window};
 use uuid::Uuid;
 
 pub struct SessionState {
@@ -26,7 +27,7 @@ impl Default for AppState {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConnectionDetails {
     host: String,
     port: Option<u16>,
@@ -38,6 +39,13 @@ struct ConnectionDetails {
     #[serde(rename = "authMethod")]
     #[allow(dead_code)]
     auth_method: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SavedHost {
+    id: String,
+    name: String,
+    details: ConnectionDetails,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -181,16 +189,69 @@ fn resize_terminal(
     }
 }
 
+fn get_connections_path(_app_handle: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let config_dir = std::env::var("HOME")
+        .map(|h| std::path::PathBuf::from(h).join(".config/terminoda"))
+        .unwrap_or_else(|_| {
+            std::path::PathBuf::from(
+                std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string())
+            )
+        });
+
+    if !config_dir.exists() {
+        fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+    }
+
+    Ok(config_dir.join("connections.json"))
+}
+
+#[tauri::command]
+fn load_saved_hosts(app_handle: AppHandle) -> Result<Vec<SavedHost>, String> {
+    let path = get_connections_path(&app_handle)?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let hosts: Vec<SavedHost> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(hosts)
+}
+
+#[tauri::command]
+fn save_new_host(
+    name: String,
+    details: ConnectionDetails,
+    app_handle: AppHandle,
+) -> Result<SavedHost, String> {
+    let mut hosts = load_saved_hosts(app_handle.clone())?;
+
+    let new_host = SavedHost {
+        id: Uuid::new_v4().to_string(),
+        name,
+        details,
+    };
+
+    hosts.push(new_host.clone());
+
+    let path = get_connections_path(&app_handle)?;
+    let content = serde_json::to_string_pretty(&hosts).map_err(|e| e.to_string())?;
+    fs::write(path, content).map_err(|e| e.to_string())?;
+
+    Ok(new_host)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             connect_ssh,
             send_terminal_input,
-            resize_terminal
+            resize_terminal,
+            load_saved_hosts,
+            save_new_host
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

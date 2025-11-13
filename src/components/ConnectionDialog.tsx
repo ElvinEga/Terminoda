@@ -25,8 +25,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { SavedHost } from "./VaultSidebar"
 
 const formSchema = z.object({
+  name: z.string().min(1, "Host name is required"),
   host: z.string().min(1, "Host is required"),
   port: z.coerce.number().int().min(1).max(65535).default(22),
   username: z.string().min(1, "Username is required"),
@@ -46,16 +48,17 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface ConnectionDialogProps {
-  onConnect: (sessionId: string) => void;
+  onSave: (newHost: SavedHost) => void;
 }
 
-export function ConnectionDialog({ onConnect }: ConnectionDialogProps) {
+export function ConnectionDialog({ onSave }: ConnectionDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [connectError, setConnectError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: "",
       host: "",
       port: 22,
       username: "",
@@ -78,29 +81,30 @@ export function ConnectionDialog({ onConnect }: ConnectionDialogProps) {
   };
 
   async function onSubmit(values: FormValues) {
-    setConnectError(null);
+    setSaveError(null);
     try {
-      const newSessionId = await invoke<string>('connect_ssh', { details: values });
-      onConnect(newSessionId);
+      const { name, ...details } = values;
+      const newSavedHost = await invoke<SavedHost>('save_new_host', { name, details });
+      onSave(newSavedHost);
       setIsOpen(false);
       form.reset();
     } catch (error) {
       const errorMsg = typeof error === 'string' ? error : String(error);
-      console.error("Connection failed:", errorMsg);
-      setConnectError(errorMsg);
+      console.error("Failed to save host:", errorMsg);
+      setSaveError(errorMsg);
     }
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" /> New Connection
+        <Button className="w-full">
+          <PlusCircle className="mr-2 h-4 w-4" /> New Host
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
-          <DialogTitle>New SSH Connection</DialogTitle>
+          <DialogTitle>Save New SSH Host</DialogTitle>
           <DialogDescription>
             Enter host details and choose authentication method.
           </DialogDescription>
@@ -108,6 +112,20 @@ export function ConnectionDialog({ onConnect }: ConnectionDialogProps) {
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Host Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="My Server" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="flex gap-2">
               <FormField
                 control={form.control}
@@ -208,14 +226,14 @@ export function ConnectionDialog({ onConnect }: ConnectionDialogProps) {
               </TabsContent>
             </Tabs>
 
-            {connectError && (
+            {saveError && (
               <p className="text-sm font-medium text-red-500">
-                {connectError}
+                {saveError}
               </p>
             )}
             
             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Connecting..." : "Connect"}
+              {form.formState.isSubmitting ? "Saving..." : "Save Connection"}
             </Button>
           </form>
         </Form>
