@@ -7,6 +7,7 @@ use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use tauri::async_runtime;
 use tauri::{AppHandle, Emitter, State, Window};
 use thiserror::Error;
 use uuid::Uuid;
@@ -98,102 +99,108 @@ impl From<uuid::Error> for TransferError {
 }
 
 #[tauri::command]
-fn connect_ssh(
+async fn connect_ssh(
     details: ConnectionDetails,
     state: State<'_, AppState>,
     window: Window,
 ) -> Result<String, String> {
-    let session_id = Uuid::new_v4();
-    let host = details.host;
-    let port = details.port.unwrap_or(22);
-    let addr = format!("{}:{}", host, port);
+    let sessions = state.sessions.clone();
+    let window_clone = window.clone();
 
-    let tcp = TcpStream::connect(&addr).map_err(|e| e.to_string())?;
-    let mut sess = Session::new().map_err(|e| e.to_string())?;
-    sess.set_tcp_stream(tcp);
+    async_runtime::spawn_blocking(move || {
+        let session_id = Uuid::new_v4();
+        let host = details.host;
+        let port = details.port.unwrap_or(22);
+        let addr = format!("{}:{}", host, port);
 
-    sess.handshake().map_err(|e| e.to_string())?;
+        let tcp = TcpStream::connect(&addr).map_err(|e| e.to_string())?;
+        let mut sess = Session::new().map_err(|e| e.to_string())?;
+        sess.set_tcp_stream(tcp);
 
-    // Authenticate with key or password
-    if let Some(key_path) = details.private_key_path {
-        sess.userauth_pubkey_file(
-            &details.username,
-            None,
-            Path::new(&key_path),
-            details.passphrase.as_deref(),
-        )
-        .map_err(|e| format!("Key authentication failed: {}", e))?;
-    } else if let Some(password) = details.password {
-        sess.userauth_password(&details.username, &password)
-            .map_err(|e| format!("Password authentication failed: {}", e))?;
-    } else {
-        return Err("No password or private key provided".to_string());
-    }
+        sess.handshake().map_err(|e| e.to_string())?;
 
-    if !sess.authenticated() {
-        return Err("Authentication failed".to_string());
-    }
+        if let Some(key_path) = details.private_key_path {
+            sess.userauth_pubkey_file(
+                &details.username,
+                None,
+                Path::new(&key_path),
+                details.passphrase.as_deref(),
+            )
+            .map_err(|e| format!("Key authentication failed: {}", e))?;
+        } else if let Some(password) = details.password {
+            sess.userauth_password(&details.username, &password)
+                .map_err(|e| format!("Password authentication failed: {}", e))?;
+        } else {
+            return Err("No password or private key provided".to_string());
+        }
 
-    let mut channel = sess.channel_session().map_err(|e| e.to_string())?;
-    channel
-        .request_pty("xterm-256color", None, None)
-        .map_err(|e| e.to_string())?;
-    channel.shell().map_err(|e| e.to_string())?;
+        if !sess.authenticated() {
+            return Err("Authentication failed".to_string());
+        }
 
-    let channel_arc = Arc::new(Mutex::new(channel));
-    let session_arc = Arc::new(Mutex::new(sess));
-    
-    state.sessions.insert(
-        session_id,
-        SessionState {
-            channel: channel_arc.clone(),
-            session: session_arc.clone(),
-            sftp: Arc::new(Mutex::new(None)),
-        },
-    );
+        let mut channel = sess.channel_session().map_err(|e| e.to_string())?;
+        channel
+            .request_pty("xterm-256color", None, None)
+            .map_err(|e| e.to_string())?;
+        channel.shell().map_err(|e| e.to_string())?;
 
-    let reader_window = window.clone();
-    let reader_session_id = session_id.to_string();
-    thread::spawn(move || {
-        let mut buffer = [0; 4096];
-        loop {
-            match channel_arc.lock() {
-                Ok(mut channel_lock) => match channel_lock.read(&mut buffer) {
-                    Ok(bytes_read) => {
-                        if bytes_read == 0 {
-                            println!("SSH stream closed for session {}", reader_session_id);
+        let channel_arc = Arc::new(Mutex::new(channel));
+        let session_arc = Arc::new(Mutex::new(sess));
+
+        sessions.insert(
+            session_id,
+            SessionState {
+                channel: channel_arc.clone(),
+                session: session_arc.clone(),
+                sftp: Arc::new(Mutex::new(None)),
+            },
+        );
+
+        let reader_window = window_clone.clone();
+        let reader_session_id = session_id.to_string();
+        thread::spawn(move || {
+            let mut buffer = [0; 4096];
+            loop {
+                match channel_arc.lock() {
+                    Ok(mut channel_lock) => match channel_lock.read(&mut buffer) {
+                        Ok(bytes_read) => {
+                            if bytes_read == 0 {
+                                println!("SSH stream closed for session {}", reader_session_id);
+                                break;
+                            }
+                            let data = buffer[..bytes_read].to_vec();
+                            let _ = reader_window.emit(
+                                "terminal-output",
+                                TerminalOutputPayload {
+                                    session_id: reader_session_id.clone(),
+                                    data,
+                                },
+                            );
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "Error reading from SSH stream for session {}: {}",
+                                reader_session_id, e
+                            );
                             break;
                         }
-                        let data = buffer[..bytes_read].to_vec();
-                        let _ = reader_window.emit(
-                            "terminal-output",
-                            TerminalOutputPayload {
-                                session_id: reader_session_id.clone(),
-                                data,
-                            },
-                        );
-                    }
+                    },
                     Err(e) => {
                         eprintln!(
-                            "Error reading from SSH stream for session {}: {}",
+                            "Error acquiring lock for session {}: {}",
                             reader_session_id, e
                         );
                         break;
                     }
-                },
-                Err(e) => {
-                    eprintln!(
-                        "Error acquiring lock for session {}: {}",
-                        reader_session_id, e
-                    );
-                    break;
                 }
             }
-        }
-    });
+        });
 
-    println!("Successfully connected session {}", session_id);
-    Ok(session_id.to_string())
+        println!("Successfully connected session {}", session_id);
+        Ok(session_id.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -428,10 +435,12 @@ async fn download_file(
     window: Window,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    (|| -> Result<(), TransferError> {
+    let sessions = state.sessions.clone();
+    let window_clone = window.clone();
+
+    async_runtime::spawn_blocking(move || {
         let uuid = Uuid::parse_str(&session_id).map_err(TransferError::from)?;
-        let session_entry = state
-            .sessions
+        let session_entry = sessions
             .get(&uuid)
             .ok_or(TransferError::SessionMissing)?;
         let session_state = session_entry.value();
@@ -474,7 +483,7 @@ async fn download_file(
             transferred_bytes += bytes_read as u64;
 
             emit_transfer_progress(
-                &window,
+                &window_clone,
                 TransferProgressPayload {
                     session_id: session_id.clone(),
                     file_path: remote_path_buf.to_string_lossy().into_owned(),
@@ -485,8 +494,10 @@ async fn download_file(
         }
 
         Ok(())
-    })()
-    .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e: TransferError| e.to_string())
 }
 
 #[tauri::command]
@@ -497,10 +508,12 @@ async fn upload_file(
     window: Window,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    (|| -> Result<(), TransferError> {
+    let sessions = state.sessions.clone();
+    let window_clone = window.clone();
+
+    async_runtime::spawn_blocking(move || {
         let uuid = Uuid::parse_str(&session_id).map_err(TransferError::from)?;
-        let session_entry = state
-            .sessions
+        let session_entry = sessions
             .get(&uuid)
             .ok_or(TransferError::SessionMissing)?;
         let session_state = session_entry.value();
@@ -539,7 +552,7 @@ async fn upload_file(
             transferred_bytes += bytes_read as u64;
 
             emit_transfer_progress(
-                &window,
+                &window_clone,
                 TransferProgressPayload {
                     session_id: session_id.clone(),
                     file_path: local_path.clone(),
@@ -550,8 +563,10 @@ async fn upload_file(
         }
 
         Ok(())
-    })()
-    .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e: TransferError| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
