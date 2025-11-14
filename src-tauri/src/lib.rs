@@ -1,15 +1,14 @@
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use ssh2::Session;
-use ssh2::Sftp;
-use std::fs;
-use std::io::Read;
-use std::io::Write;
+use ssh2::{Session, Sftp};
+use std::fs::{self, File};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tauri::{AppHandle, Emitter, State, Window};
+use thiserror::Error;
 use uuid::Uuid;
 
 pub struct SessionState {
@@ -64,6 +63,38 @@ pub struct SavedHost {
 struct TerminalOutputPayload {
     session_id: String,
     data: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct TransferProgressPayload {
+    session_id: String,
+    file_path: String,
+    transferred_bytes: u64,
+    total_bytes: u64,
+}
+
+#[derive(Debug, Error)]
+enum TransferError {
+    #[error("Session not found")]
+    SessionMissing,
+    #[error("SFTP session not initialized")]
+    SftpNotInitialized,
+    #[error("Invalid session identifier")]
+    InvalidSessionId,
+    #[error("{0}")]
+    Io(String),
+}
+
+impl From<std::io::Error> for TransferError {
+    fn from(value: std::io::Error) -> Self {
+        Self::Io(value.to_string())
+    }
+}
+
+impl From<uuid::Error> for TransferError {
+    fn from(_: uuid::Error) -> Self {
+        Self::InvalidSessionId
+    }
 }
 
 #[tauri::command]
@@ -371,6 +402,158 @@ fn list_directory(session_id: String, path: String, state: State<'_, AppState>) 
     }
 }
 
+fn ensure_sftp(session_state: &SessionState) -> Result<(), TransferError> {
+    let mut sftp_lock = session_state.sftp.lock().unwrap();
+
+    if sftp_lock.is_none() {
+        let session_lock = session_state.session.lock().unwrap();
+        let sftp = session_lock
+            .sftp()
+            .map_err(|e| TransferError::Io(format!("Failed to initialize SFTP: {}", e)))?;
+        *sftp_lock = Some(sftp);
+    }
+
+    Ok(())
+}
+
+fn emit_transfer_progress(window: &Window, payload: TransferProgressPayload) {
+    let _ = window.emit("transfer-progress", payload);
+}
+
+#[tauri::command]
+async fn download_file(
+    session_id: String,
+    remote_path: String,
+    local_path: String,
+    window: Window,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    (|| -> Result<(), TransferError> {
+        let uuid = Uuid::parse_str(&session_id).map_err(TransferError::from)?;
+        let session_entry = state
+            .sessions
+            .get(&uuid)
+            .ok_or(TransferError::SessionMissing)?;
+        let session_state = session_entry.value();
+
+        ensure_sftp(session_state)?;
+
+        let remote_path_buf = PathBuf::from(&remote_path);
+        let mut remote_file = {
+            let sftp_lock = session_state.sftp.lock().unwrap();
+            let sftp = sftp_lock
+                .as_ref()
+                .ok_or(TransferError::SftpNotInitialized)?;
+            sftp.open(&remote_path_buf)
+                .map_err(|e| TransferError::Io(e.to_string()))?
+        };
+
+        let mut local_file = File::create(&local_path).map_err(TransferError::from)?;
+
+        let total_bytes = remote_file
+            .stat()
+            .ok()
+            .and_then(|s| s.size)
+            .unwrap_or(0);
+        let mut transferred_bytes = 0u64;
+        let mut buffer = [0u8; 32 * 1024];
+
+        loop {
+            let bytes_read = remote_file
+                .read(&mut buffer)
+                .map_err(|e| TransferError::Io(e.to_string()))?;
+
+            if bytes_read == 0 {
+                break;
+            }
+
+            local_file
+                .write_all(&buffer[..bytes_read])
+                .map_err(TransferError::from)?;
+
+            transferred_bytes += bytes_read as u64;
+
+            emit_transfer_progress(
+                &window,
+                TransferProgressPayload {
+                    session_id: session_id.clone(),
+                    file_path: remote_path_buf.to_string_lossy().into_owned(),
+                    transferred_bytes,
+                    total_bytes,
+                },
+            );
+        }
+
+        Ok(())
+    })()
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn upload_file(
+    session_id: String,
+    local_path: String,
+    remote_path: String,
+    window: Window,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    (|| -> Result<(), TransferError> {
+        let uuid = Uuid::parse_str(&session_id).map_err(TransferError::from)?;
+        let session_entry = state
+            .sessions
+            .get(&uuid)
+            .ok_or(TransferError::SessionMissing)?;
+        let session_state = session_entry.value();
+
+        ensure_sftp(session_state)?;
+
+        let remote_path_buf = PathBuf::from(&remote_path);
+        let mut remote_file = {
+            let sftp_lock = session_state.sftp.lock().unwrap();
+            let sftp = sftp_lock
+                .as_ref()
+                .ok_or(TransferError::SftpNotInitialized)?;
+            sftp.create(&remote_path_buf)
+                .map_err(|e| TransferError::Io(e.to_string()))?
+        };
+
+        let mut local_file = File::open(&local_path).map_err(TransferError::from)?;
+
+        let total_bytes = local_file.metadata().map(|meta| meta.len()).unwrap_or(0);
+        let mut transferred_bytes = 0u64;
+        let mut buffer = [0u8; 32 * 1024];
+
+        loop {
+            let bytes_read = local_file
+                .read(&mut buffer)
+                .map_err(TransferError::from)?;
+
+            if bytes_read == 0 {
+                break;
+            }
+
+            remote_file
+                .write_all(&buffer[..bytes_read])
+                .map_err(|e| TransferError::Io(e.to_string()))?;
+
+            transferred_bytes += bytes_read as u64;
+
+            emit_transfer_progress(
+                &window,
+                TransferProgressPayload {
+                    session_id: session_id.clone(),
+                    file_path: local_path.clone(),
+                    transferred_bytes,
+                    total_bytes,
+                },
+            );
+        }
+
+        Ok(())
+    })()
+    .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -387,7 +570,9 @@ pub fn run() {
             close_session,
             update_host,
             delete_host,
-            list_directory
+            list_directory,
+            download_file,
+            upload_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
