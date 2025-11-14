@@ -18,11 +18,13 @@ function App() {
   const [activeTab, setActiveTab] = useState<string | undefined>();
 
   const handleConnect = async (details: ConnectionDetails, name: string) => {
+    console.log('[connect] invoking connect_ssh', details);
     toast.promise(
       invoke<string>('connect_ssh', { details }),
       {
         loading: `Connecting to ${details.host}...`,
         success: (newSessionId) => {
+          console.log('[connect] connect_ssh success', newSessionId);
           const newSession: Session = {
             id: newSessionId,
             host: details.host,
@@ -32,7 +34,10 @@ function App() {
           setActiveTab(newSessionId);
           return `Connected to ${name}!`;
         },
-        error: (err) => `Connection failed: ${err}`,
+        error: (err) => {
+          console.error('[connect] connect_ssh failed', err);
+          return `Connection failed: ${err}`;
+        },
       }
     );
   };

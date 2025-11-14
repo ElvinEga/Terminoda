@@ -10,6 +10,8 @@ use std::thread;
 use tauri::async_runtime;
 use tauri::{AppHandle, Emitter, State, Window};
 use thiserror::Error;
+use tracing::{error, info, warn};
+use tracing_subscriber::FmtSubscriber;
 use uuid::Uuid;
 
 pub struct SessionState {
@@ -108,28 +110,47 @@ async fn connect_ssh(
     let window_clone = window.clone();
 
     async_runtime::spawn_blocking(move || {
+        info!(target = "connect_ssh", host = %details.host, "Starting SSH connection");
         let session_id = Uuid::new_v4();
         let host = details.host;
         let port = details.port.unwrap_or(22);
         let addr = format!("{}:{}", host, port);
 
-        let tcp = TcpStream::connect(&addr).map_err(|e| e.to_string())?;
+        info!(target = "connect_ssh", %addr, "Connecting TCP");
+        let tcp = TcpStream::connect(&addr).map_err(|e| {
+            error!(target = "connect_ssh", error = %e, "TCP connect failed");
+            e.to_string()
+        })?;
+        info!(target = "connect_ssh", "TCP connected");
         let mut sess = Session::new().map_err(|e| e.to_string())?;
         sess.set_tcp_stream(tcp);
 
-        sess.handshake().map_err(|e| e.to_string())?;
+        info!(target = "connect_ssh", "Performing SSH handshake");
+        sess.handshake().map_err(|e| {
+            error!(target = "connect_ssh", error = %e, "Handshake failed");
+            e.to_string()
+        })?;
+        info!(target = "connect_ssh", "Handshake complete");
 
         if let Some(key_path) = details.private_key_path {
+            info!(target = "connect_ssh", "Authenticating with key");
             sess.userauth_pubkey_file(
                 &details.username,
                 None,
                 Path::new(&key_path),
                 details.passphrase.as_deref(),
             )
-            .map_err(|e| format!("Key authentication failed: {}", e))?;
+            .map_err(|e| {
+                error!(target = "connect_ssh", error = %e, "Key authentication failed");
+                format!("Key authentication failed: {}", e)
+            })?;
         } else if let Some(password) = details.password {
+            info!(target = "connect_ssh", "Authenticating with password");
             sess.userauth_password(&details.username, &password)
-                .map_err(|e| format!("Password authentication failed: {}", e))?;
+                .map_err(|e| {
+                    error!(target = "connect_ssh", error = %e, "Password authentication failed");
+                    format!("Password authentication failed: {}", e)
+                })?;
         } else {
             return Err("No password or private key provided".to_string());
         }
@@ -138,11 +159,22 @@ async fn connect_ssh(
             return Err("Authentication failed".to_string());
         }
 
-        let mut channel = sess.channel_session().map_err(|e| e.to_string())?;
+        info!(target = "connect_ssh", "Opening channel session");
+        let mut channel = sess.channel_session().map_err(|e| {
+            error!(target = "connect_ssh", error = %e, "Channel creation failed");
+            e.to_string()
+        })?;
         channel
             .request_pty("xterm-256color", None, None)
-            .map_err(|e| e.to_string())?;
-        channel.shell().map_err(|e| e.to_string())?;
+            .map_err(|e| {
+                error!(target = "connect_ssh", error = %e, "PTY request failed");
+                e.to_string()
+            })?;
+        channel.shell().map_err(|e| {
+            error!(target = "connect_ssh", error = %e, "Shell start failed");
+            e.to_string()
+        })?;
+        info!(target = "connect_ssh", "Channel ready");
 
         let channel_arc = Arc::new(Mutex::new(channel));
         let session_arc = Arc::new(Mutex::new(sess));
@@ -165,7 +197,7 @@ async fn connect_ssh(
                     Ok(mut channel_lock) => match channel_lock.read(&mut buffer) {
                         Ok(bytes_read) => {
                             if bytes_read == 0 {
-                                println!("SSH stream closed for session {}", reader_session_id);
+                                info!(target = "connect_ssh", session = %reader_session_id, "SSH stream closed");
                                 break;
                             }
                             let data = buffer[..bytes_read].to_vec();
@@ -178,25 +210,19 @@ async fn connect_ssh(
                             );
                         }
                         Err(e) => {
-                            eprintln!(
-                                "Error reading from SSH stream for session {}: {}",
-                                reader_session_id, e
-                            );
+                            warn!(target = "connect_ssh", session = %reader_session_id, error = %e, "Error reading SSH stream");
                             break;
                         }
                     },
                     Err(e) => {
-                        eprintln!(
-                            "Error acquiring lock for session {}: {}",
-                            reader_session_id, e
-                        );
+                        warn!(target = "connect_ssh", session = %reader_session_id, error = %e, "Channel lock poisoned");
                         break;
                     }
                 }
             }
         });
 
-        println!("Successfully connected session {}", session_id);
+        info!(target = "connect_ssh", session = %session_id, "SSH connection established");
         Ok(session_id.to_string())
     })
     .await
@@ -417,6 +443,7 @@ fn ensure_sftp(session_state: &SessionState) -> Result<(), TransferError> {
         let sftp = session_lock
             .sftp()
             .map_err(|e| TransferError::Io(format!("Failed to initialize SFTP: {}", e)))?;
+        info!(target = "sftp", "Initialized SFTP session");
         *sftp_lock = Some(sftp);
     }
 
@@ -446,6 +473,8 @@ async fn download_file(
         let session_state = session_entry.value();
 
         ensure_sftp(session_state)?;
+        info!(target = "sftp_upload", session = %session_id, local = %local_path, remote = %remote_path, "Starting upload");
+        info!(target = "sftp_download", session = %session_id, remote = %remote_path, local = %local_path, "Starting download");
 
         let remote_path_buf = PathBuf::from(&remote_path);
         let mut remote_file = {
@@ -493,6 +522,8 @@ async fn download_file(
             );
         }
 
+        info!(target = "sftp_download", session = %session_id, "Download complete");
+        info!(target = "sftp_upload", session = %session_id, "Upload complete");
         Ok(())
     })
     .await
@@ -571,6 +602,11 @@ async fn upload_file(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(tracing::Level::INFO)
+        .finish();
+    let _ = tracing::subscriber::set_global_default(subscriber);
+
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
