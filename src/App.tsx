@@ -6,6 +6,7 @@ import { SftpBrowser } from './components/SftpBrowser';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sidebar, ConnectionDetails } from './components/VaultSidebar';
 import { Dashboard } from './components/Dashboard';
+import { SettingsModal } from './components/SettingsModal';
 import { X, Terminal, Files } from 'lucide-react';
 
 interface Session {
@@ -18,6 +19,7 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeTab, setActiveTab] = useState<string | undefined>();
   const [activeNavItem, setActiveNavItem] = useState('hosts');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleConnect = async (details: ConnectionDetails, name: string) => {
     console.log('[connect] invoking connect_ssh', details);
@@ -61,7 +63,11 @@ function App() {
 
   return (
     <main className="flex h-screen bg-[#f4f5f7] dark:bg-[#1e1e2e] text-gray-900 dark:text-gray-100">
-      <Sidebar activeItem={activeNavItem} onItemSelect={setActiveNavItem} />
+      <Sidebar 
+        activeItem={activeNavItem} 
+        onItemSelect={setActiveNavItem} 
+        onOpenSettings={() => setIsSettingsOpen(true)}
+      />
 
       <div className="flex-grow flex flex-col overflow-hidden">
         {sessions.length > 0 ? (
@@ -140,6 +146,7 @@ function App() {
         )}
       </div>
       
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <Toaster theme="dark" />
     </main>
   );

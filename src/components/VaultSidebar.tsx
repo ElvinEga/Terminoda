@@ -1,4 +1,4 @@
-import { Server, Key, Network, Code, History, Globe } from "lucide-react";
+import { Server, Key, Network, Code, History, Globe, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface ConnectionDetails {
@@ -19,9 +19,10 @@ export interface SavedHost {
 interface SidebarProps {
   activeItem: string;
   onItemSelect: (item: string) => void;
+  onOpenSettings: () => void;
 }
 
-export function Sidebar({ activeItem, onItemSelect }: SidebarProps) {
+export function Sidebar({ activeItem, onItemSelect, onOpenSettings }: SidebarProps) {
   const navItems = [
     { id: 'hosts', label: 'Hosts', icon: Server },
     { id: 'keychain', label: 'Keychain', icon: Key },
@@ -58,6 +59,18 @@ export function Sidebar({ activeItem, onItemSelect }: SidebarProps) {
             </Button>
           ))}
         </nav>
+
+      </div>
+      
+      <div className="p-6 mt-auto border-t border-gray-200 dark:border-gray-800">
+        <Button
+          variant="ghost"
+          className="w-full justify-start hover:bg-gray-50 dark:hover:bg-[#2a2b3d]"
+          onClick={onOpenSettings}
+        >
+          <Settings className="mr-3 h-4 w-4" />
+          Settings
+        </Button>
       </div>
     </div>
   );

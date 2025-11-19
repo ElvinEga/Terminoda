@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useSettings } from "@/context/SettingsContext";
 import { Terminal as Xterm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { WebLinksAddon } from 'xterm-addon-web-links';
@@ -40,6 +41,7 @@ interface TerminalOutputPayload {
 export function Terminal({ sessionId }: TerminalProps) {
   const termRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Xterm | null>(null);
+  const { settings } = useSettings();
 
   useEffect(() => {
     if (!termRef.current || xtermRef.current) {
@@ -47,10 +49,11 @@ export function Terminal({ sessionId }: TerminalProps) {
     }
 
     const xterm = new Xterm({
-      fontFamily: '"JetBrains Mono", Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace',
-      fontSize: 14,
+      fontFamily: settings.terminalFontFamily,
+      fontSize: settings.terminalFontSize,
       cursorBlink: true,
       theme: draculaTheme,
+      allowProposedApi: true,
     });
 
     const fitAddon = new FitAddon();
@@ -118,6 +121,16 @@ export function Terminal({ sessionId }: TerminalProps) {
       xtermRef.current = null;
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    if (xtermRef.current) {
+      xtermRef.current.options.fontSize = settings.terminalFontSize;
+      xtermRef.current.options.fontFamily = settings.terminalFontFamily;
+      // Refresh the fit
+      const resizeEvent = new Event('resize');
+      window.dispatchEvent(resizeEvent); 
+    }
+  }, [settings.terminalFontSize, settings.terminalFontFamily]);
 
   return <div ref={termRef} className="w-full h-full" />;
 }
