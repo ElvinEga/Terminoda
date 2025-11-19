@@ -63,6 +63,13 @@ pub struct SavedHost {
     pub details: ConnectionDetails,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Snippet {
+    pub id: String,
+    pub name: String,
+    pub command: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct TerminalOutputPayload {
     session_id: String,
@@ -292,6 +299,59 @@ fn get_connections_path(_app_handle: &AppHandle) -> Result<std::path::PathBuf, S
     }
 
     Ok(config_dir.join("connections.json"))
+}
+
+fn get_snippets_path(_app_handle: &AppHandle) -> Result<PathBuf, String> {
+    let config_dir = std::env::var("HOME")
+        .map(|h| PathBuf::from(h).join(".config/terminoda"))
+        .unwrap_or_else(|_| {
+            PathBuf::from(std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string()))
+        });
+
+    if !config_dir.exists() {
+        fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+    }
+    Ok(config_dir.join("snippets.json"))
+}
+
+#[tauri::command]
+fn load_snippets(app_handle: AppHandle) -> Result<Vec<Snippet>, String> {
+    let path = get_snippets_path(&app_handle)?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let snippets: Vec<Snippet> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(snippets)
+}
+
+#[tauri::command]
+fn save_snippet(snippet: Snippet, app_handle: AppHandle) -> Result<Snippet, String> {
+    let mut snippets = load_snippets(app_handle.clone())?;
+    
+    // Check if updating or new
+    if let Some(pos) = snippets.iter().position(|s| s.id == snippet.id) {
+        snippets[pos] = snippet.clone();
+    } else {
+        snippets.push(snippet.clone());
+    }
+
+    let path = get_snippets_path(&app_handle)?;
+    let content = serde_json::to_string_pretty(&snippets).map_err(|e| e.to_string())?;
+    fs::write(path, content).map_err(|e| e.to_string())?;
+    
+    Ok(snippet)
+}
+
+#[tauri::command]
+fn delete_snippet(snippet_id: String, app_handle: AppHandle) -> Result<(), String> {
+    let mut snippets = load_snippets(app_handle.clone())?;
+    snippets.retain(|s| s.id != snippet_id);
+    
+    let path = get_snippets_path(&app_handle)?;
+    let content = serde_json::to_string_pretty(&snippets).map_err(|e| e.to_string())?;
+    fs::write(path, content).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -633,6 +693,12 @@ pub fn run() {
             list_directory,
             download_file,
             upload_file
+            list_directory,
+            download_file,
+            upload_file,
+            load_snippets,
+            save_snippet,
+            delete_snippet
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -7,7 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sidebar, ConnectionDetails } from './components/VaultSidebar';
 import { Dashboard } from './components/Dashboard';
 import { SettingsModal } from './components/SettingsModal';
-import { X, Terminal, Files } from 'lucide-react';
+import { SnippetsView } from './components/SnippetsView';
+import { SnippetPalette } from './components/SnippetPalette';
+import { X, Terminal, Files, PanelRight } from 'lucide-react';
 
 interface Session {
   id: string;
@@ -20,6 +22,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<string | undefined>();
   const [activeNavItem, setActiveNavItem] = useState('hosts');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showSnippets, setShowSnippets] = useState(false);
 
   const handleConnect = async (details: ConnectionDetails, name: string) => {
     console.log('[connect] invoking connect_ssh', details);
@@ -111,7 +114,11 @@ function App() {
             <div className="flex-grow overflow-hidden relative">
                {/* If no active tab (undefined), show Dashboard */}
                <div className={`absolute inset-0 ${activeTab ? 'hidden' : 'block'}`}>
-                  <Dashboard onConnect={handleConnect} />
+                  {activeNavItem === 'snippets' ? (
+                    <SnippetsView />
+                  ) : (
+                    <Dashboard onConnect={handleConnect} />
+                  )}
                </div>
 
                {/* Session Content */}
@@ -130,8 +137,23 @@ function App() {
                         </TabsTrigger>
                       </TabsList>
                     </div>
-                    <TabsContent value="terminal" className="flex-grow p-0 m-0">
-                      <TerminalComponent sessionId={session.id} />
+                    <TabsContent value="terminal" className="flex-grow p-0 m-0 mt-0 relative flex">
+                      <div className="flex-grow relative">
+                        <TerminalComponent sessionId={session.id} />
+                        
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="absolute top-2 right-4 z-10 bg-black/20 hover:bg-black/40 text-white/50 hover:text-white"
+                          onClick={() => setShowSnippets(!showSnippets)}
+                        >
+                           <PanelRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      {showSnippets && (
+                         <SnippetPalette sessionId={session.id} />
+                      )}
                     </TabsContent>
                     <TabsContent value="sftp" className="flex-grow p-0 m-0">
                       <SftpBrowser sessionId={session.id} />
@@ -142,7 +164,11 @@ function App() {
             </div>
           </Tabs>
         ) : (
-          <Dashboard onConnect={handleConnect} />
+          activeNavItem === 'snippets' ? (
+            <SnippetsView />
+          ) : (
+            <Dashboard onConnect={handleConnect} />
+          )
         )}
       </div>
       
