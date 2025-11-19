@@ -38,7 +38,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl p-0 gap-0 h-[80vh] bg-[#f4f4f5] dark:bg-[#1e1f29] overflow-hidden border-none text-foreground">
+      <DialogContent className="sm:max-w-5xl p-0 gap-0 h-[80vh] bg-[#f4f4f5] dark:bg-[#1e1f29] overflow-hidden border-none text-foreground">
         <div className="flex h-full">
           
           {/* Left Sidebar */}
