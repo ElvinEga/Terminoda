@@ -4,7 +4,8 @@ import { Toaster, toast } from 'sonner';
 import { Terminal as TerminalComponent } from './components/Terminal';
 import { SftpBrowser } from './components/SftpBrowser';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { VaultSidebar, ConnectionDetails } from './components/VaultSidebar';
+import { Sidebar, ConnectionDetails } from './components/VaultSidebar';
+import { Dashboard } from './components/Dashboard';
 import { X, Terminal, Files } from 'lucide-react';
 
 interface Session {
@@ -16,6 +17,7 @@ interface Session {
 function App() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeTab, setActiveTab] = useState<string | undefined>();
+  const [activeNavItem, setActiveNavItem] = useState('hosts');
 
   const handleConnect = async (details: ConnectionDetails, name: string) => {
     console.log('[connect] invoking connect_ssh', details);
@@ -58,19 +60,27 @@ function App() {
   };
 
   return (
-    <main className="flex h-screen bg-[#282a36] text-white">
-      <VaultSidebar onHostSelect={handleConnect} />
+    <main className="flex h-screen bg-[#f4f5f7] dark:bg-[#1e1e2e] text-gray-900 dark:text-gray-100">
+      <Sidebar activeItem={activeNavItem} onItemSelect={setActiveNavItem} />
 
-      <div className="flex-grow flex flex-col">
+      <div className="flex-grow flex flex-col overflow-hidden">
         {sessions.length > 0 ? (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-            <div className="flex items-center border-b border-gray-700 bg-[#21222C]">
+            <div className="flex items-center border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1e1e2e]">
               <TabsList className="h-auto rounded-none bg-transparent p-0 gap-0">
+                {/* Home/Dashboard Tab */}
+                <div 
+                  className={`flex items-center px-4 py-2 cursor-pointer border-r border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-[#2a2b3d] ${!activeTab ? 'bg-gray-100 dark:bg-[#2a2b3d]' : ''}`}
+                  onClick={() => setActiveTab(undefined)}
+                >
+                   <span className="text-sm font-medium">Dashboard</span>
+                </div>
+
                 {sessions.map((session) => (
-                  <div key={session.id} className="flex items-center group relative">
+                  <div key={session.id} className="flex items-center group relative border-r border-gray-200 dark:border-gray-800">
                     <TabsTrigger 
                       value={session.id}
-                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 pr-8"
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-gray-50 dark:data-[state=active]:bg-[#2a2b3d] pr-8 h-full py-2"
                     >
                       {session.name}
                     </TabsTrigger>
@@ -79,7 +89,7 @@ function App() {
                         e.stopPropagation();
                         handleCloseTab(session.id);
                       }}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 p-1 hover:text-red-400 opacity-60 hover:opacity-100 cursor-pointer"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 p-1 hover:text-red-500 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
                       role="button"
                       tabIndex={-1}
                       aria-label={`Close ${session.name}`}
@@ -90,35 +100,43 @@ function App() {
                 ))}
               </TabsList>
             </div>
-            {sessions.map((session) => (
-              <TabsContent key={session.id} value={session.id} className="flex-grow p-0">
-                <Tabs defaultValue="terminal" className="h-full flex flex-col">
-                  <TabsList className="w-fit bg-[#21222C] border-b border-gray-700 rounded-none">
-                    <TabsTrigger value="terminal" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500">
-                      <Terminal className="h-4 w-4 mr-2" />
-                      Terminal
-                    </TabsTrigger>
-                    <TabsTrigger value="sftp" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500">
-                      <Files className="h-4 w-4 mr-2" />
-                      SFTP
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="terminal" className="flex-grow p-0 m-0">
-                    <TerminalComponent sessionId={session.id} />
-                  </TabsContent>
-                  <TabsContent value="sftp" className="flex-grow p-0 m-0">
-                    <SftpBrowser sessionId={session.id} />
-                  </TabsContent>
-                </Tabs>
-              </TabsContent>
-            ))}
+
+            {/* Content Area */}
+            <div className="flex-grow overflow-hidden relative">
+               {/* If no active tab (undefined), show Dashboard */}
+               <div className={`absolute inset-0 ${activeTab ? 'hidden' : 'block'}`}>
+                  <Dashboard onConnect={handleConnect} />
+               </div>
+
+               {/* Session Content */}
+               {sessions.map((session) => (
+                <TabsContent key={session.id} value={session.id} className="h-full flex-grow p-0 m-0 data-[state=inactive]:hidden">
+                  <Tabs defaultValue="terminal" className="h-full flex flex-col">
+                    <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1e1e2e]">
+                      <TabsList className="w-fit bg-transparent rounded-none p-0">
+                        <TabsTrigger value="terminal" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500 px-4 py-2">
+                          <Terminal className="h-4 w-4 mr-2" />
+                          Terminal
+                        </TabsTrigger>
+                        <TabsTrigger value="sftp" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500 px-4 py-2">
+                          <Files className="h-4 w-4 mr-2" />
+                          SFTP
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
+                    <TabsContent value="terminal" className="flex-grow p-0 m-0">
+                      <TerminalComponent sessionId={session.id} />
+                    </TabsContent>
+                    <TabsContent value="sftp" className="flex-grow p-0 m-0">
+                      <SftpBrowser sessionId={session.id} />
+                    </TabsContent>
+                  </Tabs>
+                </TabsContent>
+              ))}
+            </div>
           </Tabs>
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-gray-500">
-              <h1 className="text-2xl mb-4">Select a host from the Vault to begin</h1>
-            </div>
-          </div>
+          <Dashboard onConnect={handleConnect} />
         )}
       </div>
       
