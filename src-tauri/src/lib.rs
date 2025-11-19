@@ -7,6 +7,7 @@ use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 use tauri::async_runtime;
 use tauri::{AppHandle, Emitter, State, Window};
 use thiserror::Error;
@@ -177,6 +178,7 @@ async fn connect_ssh(
         info!(target = "connect_ssh", "Channel ready");
 
         let channel_arc = Arc::new(Mutex::new(channel));
+        sess.set_blocking(false);
         let session_arc = Arc::new(Mutex::new(sess));
 
         sessions.insert(
@@ -194,24 +196,31 @@ async fn connect_ssh(
             let mut buffer = [0; 4096];
             loop {
                 match channel_arc.lock() {
-                    Ok(mut channel_lock) => match channel_lock.read(&mut buffer) {
-                        Ok(bytes_read) => {
-                            if bytes_read == 0 {
-                                info!(target = "connect_ssh", session = %reader_session_id, "SSH stream closed");
+                    Ok(mut channel_lock) => {
+                        match channel_lock.read(&mut buffer) {
+                            Ok(bytes_read) => {
+                                if bytes_read == 0 {
+                                    info!(target = "connect_ssh", session = %reader_session_id, "SSH stream closed");
+                                    break;
+                                }
+                                let data = buffer[..bytes_read].to_vec();
+                                let _ = reader_window.emit(
+                                    "terminal-output",
+                                    TerminalOutputPayload {
+                                        session_id: reader_session_id.clone(),
+                                        data,
+                                    },
+                                );
+                            }
+                            Err(e) => {
+                                if e.kind() == std::io::ErrorKind::WouldBlock {
+                                    drop(channel_lock);
+                                    thread::sleep(Duration::from_millis(10));
+                                    continue;
+                                }
+                                warn!(target = "connect_ssh", session = %reader_session_id, error = %e, "Error reading SSH stream");
                                 break;
                             }
-                            let data = buffer[..bytes_read].to_vec();
-                            let _ = reader_window.emit(
-                                "terminal-output",
-                                TerminalOutputPayload {
-                                    session_id: reader_session_id.clone(),
-                                    data,
-                                },
-                            );
-                        }
-                        Err(e) => {
-                            warn!(target = "connect_ssh", session = %reader_session_id, error = %e, "Error reading SSH stream");
-                            break;
                         }
                     },
                     Err(e) => {
