@@ -4,6 +4,7 @@ import { Toaster, toast } from 'sonner';
 import { Terminal as TerminalComponent } from './components/Terminal';
 import { SftpBrowser } from './components/SftpBrowser';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { Sidebar, ConnectionDetails } from './components/VaultSidebar';
 import { Dashboard } from './components/Dashboard';
 import { SettingsModal } from './components/SettingsModal';

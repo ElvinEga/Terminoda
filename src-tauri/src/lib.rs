@@ -692,9 +692,6 @@ pub fn run() {
             delete_host,
             list_directory,
             download_file,
-            upload_file
-            list_directory,
-            download_file,
             upload_file,
             load_snippets,
             save_snippet,
