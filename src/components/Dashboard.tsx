@@ -90,14 +90,14 @@ export function Dashboard({ onConnect }: DashboardProps) {
   });
 
   return (
-    <div className="flex flex-col h-full bg-[#f4f5f7] dark:bg-[#1e1e2e] text-gray-900 dark:text-gray-100 p-6 overflow-y-auto">
+    <div className="flex flex-col h-full bg-background text-foreground p-6 overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="relative w-full max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input 
             placeholder="Find a host or ssh user@hostname..." 
-            className="pl-10 bg-white dark:bg-[#2a2b3d] border-gray-200 dark:border-gray-700 rounded-md"
+            className="pl-10 bg-card border-border rounded-md"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -107,7 +107,7 @@ export function Dashboard({ onConnect }: DashboardProps) {
       {/* Actions */}
       <div className="flex gap-2 mb-6">
         <Button 
-          className="bg-[#4c566a] hover:bg-[#434c5e] text-white"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground"
           onClick={() => { setEditingHost(null); setIsDialogOpen(true); }}
         >
           <Plus className="mr-2 h-4 w-4" /> NEW HOST
@@ -116,7 +116,7 @@ export function Dashboard({ onConnect }: DashboardProps) {
 
       {/* Groups */}
       <div className="mb-8">
-        <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">Groups</h3>
+        <h3 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Groups</h3>
         <div className="flex gap-4 overflow-x-auto pb-2">
           {groups.map(group => {
             const count = group === 'All' 
@@ -130,20 +130,20 @@ export function Dashboard({ onConnect }: DashboardProps) {
                     className={cn(
                         "min-w-[180px] cursor-pointer p-4 rounded-lg shadow-sm border transition-all",
                         selectedGroup === group 
-                            ? "bg-blue-50 dark:bg-blue-900/20 border-blue-500" 
-                            : "bg-white dark:bg-[#2a2b3d] border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                            ? "bg-primary/10 border-primary" 
+                            : "bg-card border-transparent hover:border-border"
                     )}
                 >
                     <div className="flex items-center gap-3">
                         <div className={cn(
                             "p-2 rounded-md",
-                            selectedGroup === group ? "bg-blue-500" : "bg-gray-200 dark:bg-gray-700"
+                            selectedGroup === group ? "bg-primary" : "bg-muted"
                         )}>
                             {group === 'All' ? <Server className="h-5 w-5 text-white" /> : <Folder className="h-5 w-5 text-white" />}
                         </div>
                         <div>
                             <div className="font-medium truncate max-w-[100px]">{group}</div>
-                            <div className="text-xs text-gray-500">{count} Hosts</div>
+                            <div className="text-xs text-muted-foreground">{count} Hosts</div>
                         </div>
                     </div>
                 </div>
@@ -154,11 +154,11 @@ export function Dashboard({ onConnect }: DashboardProps) {
 
       {/* Hosts Grid */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider">
             {selectedGroup} Hosts
         </h3>
         {filteredHosts.length === 0 ? (
-            <div className="text-center py-10 text-gray-400">
+            <div className="text-center py-10 text-muted-foreground">
                 No hosts found in this group.
             </div>
         ) : (
@@ -166,19 +166,19 @@ export function Dashboard({ onConnect }: DashboardProps) {
             {filteredHosts.map(host => (
                 <div 
                 key={host.id} 
-                className="group bg-white dark:bg-[#2a2b3d] p-4 rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer relative border border-transparent hover:border-blue-500"
+                className="group bg-card p-4 rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer relative border border-transparent hover:border-primary"
                 onClick={() => onConnect(host.details, host.name)}
                 >
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                    <div className="bg-[#f97316] p-2 rounded-full">
-                        <Terminal className="h-5 w-5 text-white" />
+                    <div className="bg-primary p-2 rounded-full">
+                        <Terminal className="h-5 w-5 text-primary-foreground" />
                     </div>
                     <div className="overflow-hidden">
                         <div className="font-semibold text-lg truncate">{host.name}</div>
-                        <div className="text-xs text-gray-500 flex flex-col">
+                        <div className="text-xs text-muted-foreground flex flex-col">
                             <span>{host.details.username}@{host.details.host}</span>
-                            {host.group && <span className="inline-block mt-1 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] w-fit">{host.group}</span>}
+                            {host.group && <span className="inline-block mt-1 px-1.5 py-0.5 bg-muted rounded text-[10px] w-fit">{host.group}</span>}
                         </div>
                     </div>
                     </div>
@@ -224,7 +224,7 @@ export function Dashboard({ onConnect }: DashboardProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

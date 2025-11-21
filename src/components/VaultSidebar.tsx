@@ -37,13 +37,13 @@ export function Sidebar({ activeItem, onItemSelect, onOpenSettings }: SidebarPro
   ];
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#1e1e2e] text-gray-600 dark:text-gray-400 w-64 border-r border-gray-200 dark:border-gray-800">
+    <div className="flex flex-col h-full bg-background text-muted-foreground w-64 border-r border-border">
       <div className="p-6">
         <div className="flex items-center gap-2 mb-8">
-          <div className="bg-blue-600 p-1 rounded">
-            <Server className="h-5 w-5 text-white" />
+          <div className="bg-primary p-1 rounded">
+            <Server className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="font-bold text-xl text-gray-900 dark:text-white">Terminoda</span>
+          <span className="font-bold text-xl text-foreground">Terminoda</span>
         </div>
 
         <nav className="space-y-1">
@@ -53,12 +53,12 @@ export function Sidebar({ activeItem, onItemSelect, onOpenSettings }: SidebarPro
               variant="ghost"
               className={`w-full justify-start ${
                 activeItem === item.id 
-                  ? 'bg-blue-50 dark:bg-[#2a2b3d] text-blue-600 dark:text-blue-400 font-medium' 
-                  : 'hover:bg-gray-50 dark:hover:bg-[#2a2b3d]'
+                  ? 'bg-accent text-primary font-medium' 
+                  : 'hover:bg-accent'
               }`}
               onClick={() => onItemSelect(item.id)}
             >
-              <item.icon className={`mr-3 h-4 w-4 ${activeItem === item.id ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+              <item.icon className={`mr-3 h-4 w-4 ${activeItem === item.id ? 'text-primary' : ''}`} />
               {item.label}
             </Button>
           ))}
@@ -66,10 +66,10 @@ export function Sidebar({ activeItem, onItemSelect, onOpenSettings }: SidebarPro
 
       </div>
       
-      <div className="p-6 mt-auto border-t border-gray-200 dark:border-gray-800">
+      <div className="p-6 mt-auto border-t border-border">
         <Button
           variant="ghost"
-          className="w-full justify-start hover:bg-gray-50 dark:hover:bg-[#2a2b3d]"
+          className="w-full justify-start hover:bg-accent"
           onClick={onOpenSettings}
         >
           <Settings className="mr-3 h-4 w-4" />

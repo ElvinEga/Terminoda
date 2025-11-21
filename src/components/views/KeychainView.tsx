@@ -138,24 +138,24 @@ export function KeychainView() {
   ];
 
   return (
-    <div className="h-full flex flex-col p-8 max-w-6xl mx-auto w-full bg-[#050505] text-zinc-200">
+    <div className="h-full flex flex-col p-8 max-w-6xl mx-auto w-full bg-background text-foreground">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Keychain & Security</h1>
-          <p className="text-zinc-400 text-sm">Manage your digital identities and audit security.</p>
+          <h1 className="text-2xl font-bold text-foreground mb-1">Keychain & Security</h1>
+          <p className="text-muted-foreground text-sm">Manage your digital identities and audit security.</p>
         </div>
         <div className="flex gap-3">
           <button 
             onClick={handleImportKey}
-            className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition-colors border border-white/10 flex items-center gap-2"
+            className="px-4 py-2 bg-accent hover:bg-accent/80 text-foreground rounded-lg text-sm font-medium transition-colors border border-border flex items-center gap-2"
           >
             <Icons.Upload className="w-4 h-4" />
             Import Key
           </button>
           <button 
             onClick={() => setIsDialogOpen(true)}
-            className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
           >
             <Icons.Plus className="w-4 h-4" />
             Generate New Key
@@ -164,20 +164,20 @@ export function KeychainView() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6 border-b border-white/10">
+      <div className="flex items-center gap-1 mb-6 border-b border-border">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               "px-4 py-3 text-sm font-medium flex items-center gap-2 relative transition-colors",
-              activeTab === tab.id ? "text-white" : "text-zinc-500 hover:text-zinc-300",
+              activeTab === tab.id ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             <tab.icon className="w-4 h-4" />
             {tab.label}
             {activeTab === tab.id && (
-              <motion.div layoutId="active-keychain-tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+              <motion.div layoutId="active-keychain-tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
             )}
           </button>
         ))}
@@ -188,7 +188,7 @@ export function KeychainView() {
         {activeTab === "keys" && (
           <div className="space-y-4">
             {keys.length === 0 && (
-                <div className="text-center py-12 border border-dashed border-zinc-800 rounded-xl text-zinc-500">
+                <div className="text-center py-12 border border-dashed border-border rounded-xl text-muted-foreground">
                     No SSH keys found. Generate or import one.
                 </div>
             )}
@@ -197,18 +197,18 @@ export function KeychainView() {
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 key={key.id}
-                className="group p-4 rounded-xl bg-zinc-900/30 border border-white/5 hover:border-white/10 transition-all hover:bg-zinc-900/50"
+                className="group p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-all hover:bg-accent"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
                       <Icons.Key className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-white font-medium flex items-center gap-2">
+                      <h3 className="text-foreground font-medium flex items-center gap-2">
                         {key.name}
                       </h3>
-                      <div className="flex items-center gap-4 mt-1 text-xs text-zinc-500 font-mono">
+                      <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground font-mono">
                         <span>{key.type}</span>
                         <span>•</span>
                         <span>{key.fingerprint.substring(0, 24)}...</span>
@@ -218,12 +218,12 @@ export function KeychainView() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-2 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors" title="Copy Fingerprint">
+                    <button className="p-2 hover:bg-accent rounded-lg text-muted-foreground hover:text-foreground transition-colors" title="Copy Fingerprint">
                       <Icons.Copy className="w-4 h-4" />
                     </button>
                     <button 
                         onClick={() => handleDelete(key.id)}
-                        className="p-2 hover:bg-red-500/10 rounded-lg text-zinc-400 hover:text-red-500 transition-colors"
+                        className="p-2 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive transition-colors"
                         title="Delete Key"
                     >
                       <Icons.Trash className="w-4 h-4" />
@@ -241,17 +241,17 @@ export function KeychainView() {
             {identities.map((identity) => (
               <div
                 key={identity.id}
-                className="p-4 rounded-xl bg-zinc-900/50 border border-white/5 hover:border-white/10 transition-all"
+                className="p-4 rounded-xl bg-muted/50 border border-border hover:border-primary/50 transition-all"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                     <Icons.User className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-white font-medium">{identity.label}</h3>
-                    <p className="text-sm text-zinc-500">{identity.username}</p>
+                    <h3 className="text-foreground font-medium">{identity.label}</h3>
+                    <p className="text-sm text-muted-foreground">{identity.username}</p>
                   </div>
-                  <div className="ml-auto text-xs text-zinc-600 bg-zinc-900 px-2 py-1 rounded border border-white/5">
+                  <div className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-1 rounded border border-border">
                     {identity.usedIn}
                   </div>
                 </div>
@@ -268,20 +268,20 @@ export function KeychainView() {
                 <div className="text-green-500 mb-2">
                   <Icons.Shield className="w-6 h-6" />
                 </div>
-                <div className="text-2xl font-bold text-white mb-1">92%</div>
-                <div className="text-sm text-zinc-400">Security Score</div>
+                <div className="text-2xl font-bold text-foreground mb-1">92%</div>
+                <div className="text-sm text-muted-foreground">Security Score</div>
               </div>
-              <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5">
-                <div className="text-zinc-400 mb-2">
+              <div className="p-6 rounded-xl bg-muted/50 border border-border">
+                <div className="text-muted-foreground mb-2">
                   <Icons.Key className="w-6 h-6" />
                 </div>
-                <div className="text-2xl font-bold text-white mb-1">{keys.length}</div>
-                <div className="text-sm text-zinc-400">Active Keys</div>
+                <div className="text-2xl font-bold text-foreground mb-1">{keys.length}</div>
+                <div className="text-sm text-muted-foreground">Active Keys</div>
               </div>
             </div>
-            <div className="p-6 rounded-xl bg-zinc-900/30 border border-white/10">
-                <h3 className="text-zinc-300 font-medium mb-2">No issues detected</h3>
-                <p className="text-zinc-500 text-sm">Your keys look secure.</p>
+            <div className="p-6 rounded-xl bg-card border border-border">
+                <h3 className="text-foreground font-medium mb-2">No issues detected</h3>
+                <p className="text-muted-foreground text-sm">Your keys look secure.</p>
             </div>
           </div>
         )}
@@ -289,25 +289,25 @@ export function KeychainView() {
 
       {/* Generate Key Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-[#0A0A0A] border-white/10 text-zinc-200 sm:max-w-[400px]">
+        <DialogContent className="bg-background border-border text-foreground sm:max-w-[400px]">
              <DialogHeader><DialogTitle>Generate SSH Key</DialogTitle></DialogHeader>
              <div className="space-y-4 py-4">
                  <div className="space-y-2">
-                     <label className="text-xs text-zinc-400">Key Name</label>
+                     <label className="text-xs text-muted-foreground">Key Name</label>
                      <Input 
                         value={newKeyName} 
                         onChange={(e) => setNewKeyName(e.target.value)} 
-                        className="bg-zinc-900 border-white/10"
+                        className="bg-input border-border"
                         placeholder="e.g. Production Server"
                      />
                  </div>
                  <div className="space-y-2">
-                     <label className="text-xs text-zinc-400">Algorithm</label>
+                     <label className="text-xs text-muted-foreground">Algorithm</label>
                      <Select value={newKeyType} onValueChange={setNewKeyType}>
-                        <SelectTrigger className="bg-zinc-900 border-white/10">
+                        <SelectTrigger className="bg-input border-border">
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-[#111] border-white/10 text-zinc-300">
+                        <SelectContent className="bg-popover border-border text-popover-foreground">
                             <SelectItem value="RSA 4096">RSA 4096</SelectItem>
                             <SelectItem value="ED25519">ED25519</SelectItem>
                         </SelectContent>
@@ -316,7 +316,7 @@ export function KeychainView() {
              </div>
              <DialogFooter>
                  <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                 <Button onClick={handleGenerateKey} className="bg-white text-black hover:bg-zinc-200">Generate</Button>
+                 <Button onClick={handleGenerateKey} className="bg-primary text-primary-foreground hover:bg-primary/90">Generate</Button>
              </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -213,12 +213,12 @@ export function Terminal({ sessionId, onResize }: TerminalProps) {
         
         {/* Search Overlay */}
         {showSearch && (
-            <div className="absolute top-2 right-4 z-20 flex items-center gap-1 bg-[#1e1f29] p-1 rounded-md border border-white/10 shadow-lg">
-                <Search className="h-4 w-4 text-zinc-400 ml-2" />
+            <div className="absolute top-2 right-4 z-20 flex items-center gap-1 bg-popover p-1 rounded-md border border-border shadow-lg">
+                <Search className="h-4 w-4 text-muted-foreground ml-2" />
                 <Input 
                     autoFocus
                     placeholder="Find..." 
-                    className="h-7 w-32 border-none bg-transparent focus-visible:ring-0 text-sm text-white"
+                    className="h-7 w-32 border-none bg-transparent focus-visible:ring-0 text-sm text-foreground"
                     value={searchText}
                     onChange={(e) => setSearchText(e.target.value)}
                     onKeyDown={(e) => {
@@ -226,9 +226,9 @@ export function Terminal({ sessionId, onResize }: TerminalProps) {
                         if (e.key === 'Escape') { setShowSearch(false); xtermRef.current?.focus(); }
                     }}
                 />
-                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-white/10" onClick={findPrev}><ArrowUp className="h-3 w-3" /></Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-white/10" onClick={findNext}><ArrowDown className="h-3 w-3" /></Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-red-500/20 hover:text-red-400" onClick={() => setShowSearch(false)}><X className="h-3 w-3" /></Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-accent" onClick={findPrev}><ArrowUp className="h-3 w-3" /></Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-accent" onClick={findNext}><ArrowDown className="h-3 w-3" /></Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/20 hover:text-destructive" onClick={() => setShowSearch(false)}><X className="h-3 w-3" /></Button>
             </div>
         )}
     </div>

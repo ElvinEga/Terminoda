@@ -20,14 +20,14 @@ export function AppSidebar({ activeView, onViewChange, onOpenSettings }: Sidebar
   ]
 
   return (
-    <div className="w-[260px] h-full bg-black border-r border-white/10 flex flex-col justify-between p-4 z-20 shrink-0">
+    <div className="w-[260px] h-full bg-sidebar border-r border-sidebar-border flex flex-col justify-between p-4 z-20 shrink-0">
       <div className="flex flex-col gap-6">
         {/* Logo Area */}
         <div className="flex items-center gap-3 px-2 py-1">
-          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center">
-            <Icons.Terminal className="w-5 h-5 text-black" />
+          <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
+            <Icons.Terminal className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
-          <span className="font-bold text-lg tracking-tight text-white">Terminoda</span>
+          <span className="font-bold text-lg tracking-tight text-sidebar-accent-foreground">Terminoda</span>
         </div>
 
         {/* Main Navigation */}
@@ -38,20 +38,20 @@ export function AppSidebar({ activeView, onViewChange, onOpenSettings }: Sidebar
               onClick={() => onViewChange(item.id)}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative",
-                activeView === item.id ? "text-white bg-white/10" : "text-zinc-400 hover:text-white hover:bg-white/5",
+                activeView === item.id ? "text-sidebar-accent-foreground bg-sidebar-accent" : "text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/50",
               )}
             >
               <item.icon
                 className={cn(
                   "w-5 h-5",
-                  activeView === item.id ? "text-white" : "text-zinc-500 group-hover:text-white",
+                  activeView === item.id ? "text-sidebar-accent-foreground" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground",
                 )}
               />
               {item.label}
               {activeView === item.id && (
                 <motion.div
                   layoutId="active-nav"
-                  className="absolute left-0 w-1 h-5 bg-white rounded-r-full"
+                  className="absolute left-0 w-1 h-5 bg-sidebar-primary rounded-r-full"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.2 }}
@@ -67,10 +67,10 @@ export function AppSidebar({ activeView, onViewChange, onOpenSettings }: Sidebar
         <button
             onClick={onOpenSettings}
             className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group text-zinc-400 hover:text-white hover:bg-white/5"
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/50"
             )}
           >
-            <Icons.Settings className="w-5 h-5 text-zinc-500 group-hover:text-white" />
+            <Icons.Settings className="w-5 h-5 text-sidebar-foreground group-hover:text-sidebar-accent-foreground" />
             Settings
         </button>
       </div>

@@ -269,19 +269,19 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-black/20">
+    <div className="flex flex-col h-full bg-background/20">
       {/* Toolbar */}
-      <div className="h-12 border-b border-white/10 flex items-center justify-between px-4 bg-white/5">
+      <div className="h-12 border-b border-border flex items-center justify-between px-4 bg-accent/50">
         <div className="flex items-center gap-2 flex-1 mr-4">
            <button 
              onClick={handleGoUp} 
              disabled={currentPath === "/"}
-             className="p-1.5 hover:bg-white/10 rounded text-zinc-400 hover:text-white disabled:opacity-30"
+             className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground disabled:opacity-30"
            >
              <Icons.ChevronRight className="w-4 h-4 rotate-180" />
            </button>
-           <div className="flex-1 flex items-center gap-2 px-3 py-1.5 bg-black/30 border border-white/5 rounded text-xs font-mono text-zinc-300">
-             <span className="text-blue-400">sftp://</span>
+           <div className="flex-1 flex items-center gap-2 px-3 py-1.5 bg-background/30 border border-border rounded text-xs font-mono text-muted-foreground">
+             <span className="text-primary">sftp://</span>
              {currentPath}
            </div>
         </div>
@@ -289,16 +289,16 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setIsMkdirOpen(true)}
-            className="p-2 hover:bg-white/10 rounded text-zinc-400 hover:text-white transition-colors"
+            className="p-2 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
             title="New Folder"
           >
             <Icons.Plus className="w-4 h-4" />
           </button>
-          <div className="h-4 w-px bg-white/10 mx-1" />
-          <button onClick={handleUpload} className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs font-medium text-white transition-colors">
+          <div className="h-4 w-px bg-border mx-1" />
+          <button onClick={handleUpload} className="flex items-center gap-2 px-3 py-1.5 bg-accent hover:bg-accent/80 rounded text-xs font-medium text-foreground transition-colors">
             <Icons.Upload className="w-3 h-3" /> Upload
           </button>
-          <button onClick={handleDownload} className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs font-medium text-white transition-colors">
+          <button onClick={handleDownload} className="flex items-center gap-2 px-3 py-1.5 bg-accent hover:bg-accent/80 rounded text-xs font-medium text-foreground transition-colors">
             <Icons.Download className="w-3 h-3" /> Download
           </button>
         </div>
@@ -306,9 +306,9 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
 
       {/* Transfer Progress */}
       {transferState && (
-          <div className="h-1 w-full bg-zinc-800 overflow-hidden">
+          <div className="h-1 w-full bg-muted overflow-hidden">
              <div 
-               className="h-full bg-blue-500 transition-all duration-300"
+               className="h-full bg-primary transition-all duration-300"
                style={{ width: `${(transferState.transferredBytes / Math.max(1, transferState.totalBytes)) * 100}%` }}
              />
           </div>
@@ -317,7 +317,7 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
       {/* File List */}
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-left text-xs">
-          <thead className="text-zinc-500 border-b border-white/5 sticky top-0 bg-[#0A0A0A] z-10">
+          <thead className="text-muted-foreground border-b border-border sticky top-0 bg-background z-10">
             <tr>
               <th className="p-2 pl-4 font-medium">Name</th>
               <th className="p-2 font-medium w-24">Size</th>
@@ -325,46 +325,46 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
               <th className="p-2 font-medium w-10"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.02]">
+          <tbody className="divide-y divide-border">
             {isLoading ? (
-               <tr><td colSpan={4} className="p-8 text-center text-zinc-600">Loading...</td></tr>
+               <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">Loading...</td></tr>
             ) : visibleFiles.length === 0 ? (
-               <tr><td colSpan={4} className="p-8 text-center text-zinc-600">Empty Directory</td></tr>
+               <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">Empty Directory</td></tr>
             ) : (
                visibleFiles.map((file) => (
                  <tr 
                     key={file.name} 
-                    className="hover:bg-white/5 group transition-colors cursor-pointer"
+                    className="hover:bg-accent group transition-colors cursor-pointer"
                     onDoubleClick={() => file.is_dir && handleNavigate(file.name)}
                     onClick={() => setSelectedFile(file)}
                  >
-                    <td className="p-2 pl-4 flex items-center gap-2 text-zinc-300 group-hover:text-white">
+                    <td className="p-2 pl-4 flex items-center gap-2 text-muted-foreground group-hover:text-foreground">
                         {file.is_dir ? (
-                            <Icons.Folder className="w-4 h-4 text-blue-400 fill-blue-400/20" />
+                            <Icons.Folder className="w-4 h-4 text-primary fill-primary/20" />
                         ) : (
                             <div className="w-4 h-4 flex items-center justify-center">
-                                <div className="w-3 h-4 bg-zinc-700 rounded-[1px]" />
+                                <div className="w-3 h-4 bg-muted-foreground/50 rounded-[1px]" />
                             </div>
                         )}
                         <span className="truncate">{file.name}</span>
                     </td>
-                    <td className="p-2 text-zinc-500 font-mono">{file.is_dir ? '-' : formatBytes(file.size)}</td>
-                    <td className="p-2 text-zinc-600 font-mono">{file.permissions}</td>
+                    <td className="p-2 text-muted-foreground font-mono">{file.is_dir ? '-' : formatBytes(file.size)}</td>
+                    <td className="p-2 text-muted-foreground font-mono">{file.permissions}</td>
                     <td className="p-2 text-right">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <button className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded text-zinc-400 hover:text-white">
+                                <button className="opacity-0 group-hover:opacity-100 p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground">
                                     <Icons.More className="w-3 h-3" />
                                 </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-[#111] border-white/10 text-zinc-300">
+                            <DropdownMenuContent align="end" className="bg-popover border-border text-popover-foreground">
                                 <DropdownMenuItem onClick={() => { setFileToEdit(file); setRenameValue(file.name); setIsRenameOpen(true); }}>
                                     Rename
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openPermDialog(file)}>
                                     Permissions
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-400 focus:text-red-400" onClick={() => handleDelete(file)}>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(file)}>
                                     Delete
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -379,51 +379,51 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
 
       {/* Dialogs (Mkdir / Rename) - reuse logic, ensure dark styling */}
       <Dialog open={isMkdirOpen} onOpenChange={setIsMkdirOpen}>
-        <DialogContent className="bg-[#0A0A0A] border-white/10 text-zinc-200">
+        <DialogContent className="bg-background border-border text-foreground">
              <DialogHeader><DialogTitle>New Folder</DialogTitle></DialogHeader>
              <Input 
                 value={newFolderName} 
                 onChange={e => setNewFolderName(e.target.value)} 
-                className="bg-zinc-900 border-white/10"
+                className="bg-input border-border"
                 placeholder="Folder Name"
              />
              <DialogFooter>
                  <Button variant="ghost" onClick={() => setIsMkdirOpen(false)}>Cancel</Button>
-                 <Button onClick={handleCreateDirectory} className="bg-white text-black hover:bg-zinc-200">Create</Button>
+                 <Button onClick={handleCreateDirectory} className="bg-primary text-primary-foreground hover:bg-primary/90">Create</Button>
              </DialogFooter>
         </DialogContent>
       </Dialog>
       
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-        <DialogContent className="bg-[#0A0A0A] border-white/10 text-zinc-200">
+        <DialogContent className="bg-background border-border text-foreground">
              <DialogHeader><DialogTitle>Rename</DialogTitle></DialogHeader>
              <Input 
                 value={renameValue} 
                 onChange={e => setRenameValue(e.target.value)} 
-                className="bg-zinc-900 border-white/10"
+                className="bg-input border-border"
              />
              <DialogFooter>
                  <Button variant="ghost" onClick={() => setIsRenameOpen(false)}>Cancel</Button>
-                 <Button onClick={handleRename} className="bg-white text-black hover:bg-zinc-200">Save</Button>
+                 <Button onClick={handleRename} className="bg-primary text-primary-foreground hover:bg-primary/90">Save</Button>
              </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isPermOpen} onOpenChange={setIsPermOpen}>
-        <DialogContent className="bg-[#0A0A0A] border-white/10 text-zinc-200">
+        <DialogContent className="bg-background border-border text-foreground">
              <DialogHeader><DialogTitle>Change Permissions</DialogTitle></DialogHeader>
              <div className="space-y-2">
-                <label className="text-sm text-zinc-400">Octal Mode (e.g., 755, 644)</label>
+                <label className="text-sm text-muted-foreground">Octal Mode (e.g., 755, 644)</label>
                 <Input 
                     value={permValue} 
                     onChange={(e) => setPermValue(e.target.value)} 
-                    className="bg-zinc-900 border-white/10"
+                    className="bg-input border-border"
                     maxLength={4}
                 />
              </div>
              <DialogFooter>
                  <Button variant="ghost" onClick={() => setIsPermOpen(false)}>Cancel</Button>
-                 <Button onClick={handleChmod} className="bg-white text-black hover:bg-zinc-200">Apply</Button>
+                 <Button onClick={handleChmod} className="bg-primary text-primary-foreground hover:bg-primary/90">Apply</Button>
              </DialogFooter>
         </DialogContent>
       </Dialog>

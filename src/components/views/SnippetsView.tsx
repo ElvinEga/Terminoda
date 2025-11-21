@@ -77,28 +77,28 @@ export function SnippetsView() {
   );
 
   return (
-    <div className="flex flex-col h-full bg-[#050505] text-zinc-400 overflow-hidden">
+    <div className="flex flex-col h-full bg-background text-muted-foreground overflow-hidden">
       {/* Header */}
-      <div className="h-16 border-b border-white/10 flex items-center justify-between px-6 bg-black/20 backdrop-blur-sm shrink-0">
+      <div className="h-16 border-b border-border flex items-center justify-between px-6 bg-background/95 backdrop-blur-sm shrink-0">
         <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                <Terminal className="h-4 w-4 text-purple-400" />
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
+                <Terminal className="h-4 w-4 text-primary" />
             </div>
             <div>
-                <h2 className="text-sm font-medium text-white">Snippets</h2>
-                <p className="text-xs text-zinc-500">Reusable command templates</p>
+                <h2 className="text-sm font-medium text-foreground">Snippets</h2>
+                <p className="text-xs text-muted-foreground">Reusable command templates</p>
             </div>
         </div>
 
         <div className="flex items-center gap-3">
             <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                     type="text"
                     placeholder="Search snippets..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-zinc-900/50 border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-sm text-white focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all placeholder:text-zinc-600"
+                    className="w-full bg-input border border-border rounded-lg pl-9 pr-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring transition-all placeholder:text-muted-foreground"
                 />
             </div>
             <button
@@ -106,7 +106,7 @@ export function SnippetsView() {
                 setCurrentSnippet({ id: '', name: '', command: '' });
                 setIsDialogOpen(true);
               }}
-              className="bg-white text-black px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors flex items-center gap-2"
+              className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
               New Snippet
@@ -125,19 +125,19 @@ export function SnippetsView() {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ delay: i * 0.02 }}
-                        className="group flex flex-col p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10 transition-all"
+                        className="group flex flex-col p-4 rounded-xl border border-border bg-card hover:bg-accent hover:border-primary/50 transition-all"
                     >
                         <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-md bg-zinc-900/50 flex items-center justify-center border border-white/5 text-purple-400">
+                                <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center border border-border text-primary">
                                     <Code className="w-4 h-4" />
                                 </div>
-                                <span className="font-medium text-white text-sm truncate max-w-[120px]">{snippet.name}</span>
+                                <span className="font-medium text-foreground text-sm truncate max-w-[120px]">{snippet.name}</span>
                             </div>
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button 
                                     onClick={() => copyToClipboard(snippet.command)}
-                                    className="p-1.5 rounded hover:bg-white/10 text-zinc-500 hover:text-white transition-colors"
+                                    className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                                     title="Copy to clipboard"
                                 >
                                     <Copy className="w-3.5 h-3.5" />
@@ -147,13 +147,13 @@ export function SnippetsView() {
                                         setCurrentSnippet(snippet);
                                         setIsDialogOpen(true);
                                     }}
-                                    className="p-1.5 rounded hover:bg-white/10 text-zinc-500 hover:text-white transition-colors"
+                                    className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                                 >
                                     <Edit className="w-3.5 h-3.5" />
                                 </button>
                                 <button 
                                     onClick={() => handleDelete(snippet.id)}
-                                    className="p-1.5 rounded hover:bg-red-500/10 text-zinc-500 hover:text-red-400 transition-colors"
+                                    className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                                 >
                                     <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -161,10 +161,10 @@ export function SnippetsView() {
                         </div>
                         
                         <div className="relative mt-auto group/code">
-                            <div className="bg-black/40 border border-white/5 rounded-lg p-2.5 h-20 overflow-hidden font-mono text-xs text-zinc-400 break-all">
+                            <div className="bg-muted border border-border rounded-lg p-2.5 h-20 overflow-hidden font-mono text-xs text-muted-foreground break-all">
                                 {snippet.command}
                             </div>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-muted to-transparent pointer-events-none" />
                         </div>
                     </motion.div>
                 ))}
@@ -174,34 +174,34 @@ export function SnippetsView() {
 
       {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-[#0A0A0A] border-white/10 text-zinc-200 sm:max-w-lg">
+        <DialogContent className="bg-background border-border text-foreground sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{currentSnippet.id ? 'Edit Snippet' : 'New Snippet'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-400">Name</label>
+              <label className="text-sm font-medium text-muted-foreground">Name</label>
               <Input 
                 value={currentSnippet.name} 
                 onChange={(e) => setCurrentSnippet({...currentSnippet, name: e.target.value})}
                 placeholder="e.g. Update System" 
-                className="bg-zinc-900/50 border-white/10 focus:border-white/20"
+                className="bg-input border-border focus:border-ring"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-400">Command</label>
+              <label className="text-sm font-medium text-muted-foreground">Command</label>
               <Textarea 
                 value={currentSnippet.command} 
                 onChange={(e) => setCurrentSnippet({...currentSnippet, command: e.target.value})}
                 placeholder="sudo apt update && sudo apt upgrade -y" 
-                className="bg-zinc-900/50 border-white/10 focus:border-white/20 font-mono min-h-[100px]"
+                className="bg-input border-border focus:border-ring font-mono min-h-[100px]"
               />
-              <p className="text-xs text-zinc-500">Commands will be pasted into the active terminal.</p>
+              <p className="text-xs text-muted-foreground">Commands will be pasted into the active terminal.</p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="hover:bg-white/10 hover:text-white">Cancel</Button>
-            <Button onClick={handleSave} className="bg-white text-black hover:bg-zinc-200">Save Snippet</Button>
+            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="hover:bg-accent hover:text-foreground">Cancel</Button>
+            <Button onClick={handleSave} className="bg-primary text-primary-foreground hover:bg-primary/90">Save Snippet</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

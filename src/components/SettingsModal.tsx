@@ -44,11 +44,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-5xl p-0 gap-0 h-[80vh] bg-[#f4f4f5] dark:bg-[#1e1f29] overflow-hidden border-none text-foreground">
+      <DialogContent className="sm:max-w-5xl p-0 gap-0 h-[80vh] bg-background overflow-hidden border-none text-foreground">
         <div className="flex h-full">
           
           {/* Left Sidebar */}
-          <div className="w-64 bg-white dark:bg-[#2b2d3b] border-r border-gray-200 dark:border-gray-700 flex flex-col">
+          <div className="w-64 bg-card border-r border-border flex flex-col">
             <div className="p-6 pb-4">
               <h2 className="text-lg font-semibold">Settings</h2>
             </div>
@@ -60,30 +60,30 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   className={cn(
                     "w-full text-left px-6 py-2 text-sm font-medium transition-colors",
                     activeSection === section
-                      ? "bg-gray-100 dark:bg-[#343746] text-blue-600 dark:text-blue-400 border-r-2 border-blue-500"
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#343746]/50"
+                      ? "bg-muted text-primary border-r-2 border-primary"
+                      : "text-muted-foreground hover:bg-muted/50"
                   )}
                 >
                   {section}
                 </button>
               ))}
             </div>
-            <div className="p-6 text-xs text-gray-400">
+            <div className="p-6 text-xs text-muted-foreground">
               <p>Terminoda v{appVersion}</p>
             </div>
           </div>
 
           {/* Right Content Area */}
-          <div className="flex-1 overflow-y-auto bg-[#f9fafb] dark:bg-[#1e1f29] p-8">
+          <div className="flex-1 overflow-y-auto bg-background p-8">
             
             {/* --- ACCOUNT --- */}
             {activeSection === "Account" && (
               <div className="max-w-xl mx-auto text-center mt-20">
-                <div className="bg-gray-200 dark:bg-[#2a2b3d] h-24 w-24 rounded-full mx-auto flex items-center justify-center mb-4">
-                    <User className="h-12 w-12 text-gray-400" />
+                <div className="bg-muted h-24 w-24 rounded-full mx-auto flex items-center justify-center mb-4">
+                    <User className="h-12 w-12 text-muted-foreground" />
                 </div>
                 <h3 className="text-xl font-semibold">Local User</h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-6">Syncing features are currently disabled.</p>
+                <p className="text-muted-foreground mb-6">Syncing features are currently disabled.</p>
                 <Button disabled>Sign In / Register</Button>
               </div>
             )}
@@ -91,9 +91,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             {/* --- INVITE --- */}
             {activeSection === "Invite People" && (
                <div className="max-w-xl mx-auto text-center mt-20">
-                  <Users className="h-16 w-16 mx-auto text-blue-500 mb-4" />
+                  <Users className="h-16 w-16 mx-auto text-primary mb-4" />
                   <h3 className="text-xl font-semibold">Collaborate</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-6">
+                  <p className="text-muted-foreground mb-6">
                     Team features like shared vaults and snippet libraries are coming soon.
                   </p>
                </div>
@@ -102,7 +102,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             {/* --- TERMINAL --- */}
             {activeSection === "Terminal" && (
               <div className="space-y-6 max-w-3xl mx-auto">
-                <div className="bg-white dark:bg-[#2b2d3b] rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
                   <h3 className="text-sm font-semibold mb-4">Terminal settings</h3>
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
@@ -138,7 +138,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-[#2b2d3b] rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
                   <h3 className="text-sm font-semibold mb-4">Typography</h3>
                   <div className="space-y-4">
                     <div>
@@ -158,7 +158,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
-                        <div className="w-12 text-center text-sm font-mono bg-white dark:bg-[#191a21] border rounded-md py-1">
+                        <div className="w-12 text-center text-sm font-mono bg-background border rounded-md py-1">
                           {settings.terminalFontSize}
                         </div>
                         <Button 
@@ -177,7 +177,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             {/* --- SFTP --- */}
             {activeSection === "SFTP" && (
                 <div className="max-w-3xl mx-auto">
-                    <div className="bg-white dark:bg-[#2b2d3b] rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                    <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
                         <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
                             <FolderCog className="h-4 w-4" /> SFTP Browser
                         </h3>
@@ -195,13 +195,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             {/* --- SHORTCUTS --- */}
             {activeSection === "Shortcuts" && (
                 <div className="max-w-3xl mx-auto">
-                    <div className="bg-white dark:bg-[#2b2d3b] rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-                        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#343746]">
+                    <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+                        <div className="p-4 border-b border-border bg-muted">
                             <h3 className="text-sm font-semibold flex items-center gap-2">
                                 <Command className="h-4 w-4" /> Keyboard Shortcuts
                             </h3>
                         </div>
-                        <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                        <div className="divide-y divide-border">
                             {[
                                 { action: "Find in Terminal", keys: "Ctrl + F" },
                                 { action: "Copy (Selection)", keys: "Ctrl + Shift + C" },
@@ -211,7 +211,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             ].map((s, i) => (
                                 <div key={i} className="flex justify-between p-4 text-sm">
                                     <span>{s.action}</span>
-                                    <kbd className="px-2 py-1 bg-gray-100 dark:bg-[#191a21] rounded border border-gray-200 dark:border-gray-600 font-mono text-xs">
+                                    <kbd className="px-2 py-1 bg-muted rounded border border-border font-mono text-xs">
                                         {s.keys}
                                     </kbd>
                                 </div>
@@ -223,7 +223,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
             {/* --- THEME --- */}
             {activeSection === "Theme" && (
-               <div className="max-w-3xl mx-auto bg-white dark:bg-[#2b2d3b] rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+               <div className="max-w-3xl mx-auto bg-card rounded-xl border border-border p-6 shadow-sm">
                 <h3 className="text-sm font-semibold mb-4">Appearance</h3>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Application Theme</span>
@@ -247,30 +247,30 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             {/* --- ABOUT --- */}
             {activeSection === "About" && (
                 <div className="max-w-xl mx-auto text-center mt-10">
-                    <div className="bg-blue-600 p-4 rounded-2xl inline-block mb-4 shadow-lg shadow-blue-900/20">
-                        <Info className="h-10 w-10 text-white" />
+                    <div className="bg-primary p-4 rounded-2xl inline-block mb-4 shadow-lg shadow-primary/20">
+                        <Info className="h-10 w-10 text-primary-foreground" />
                     </div>
                     <h2 className="text-2xl font-bold mb-2">Terminoda</h2>
-                    <p className="text-gray-500 dark:text-gray-400 mb-6">
+                    <p className="text-muted-foreground mb-6">
                         A modern, cross-platform SSH client built with Tauri, React, and Rust.
                     </p>
                     
-                    <div className="bg-white dark:bg-[#2b2d3b] rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-left text-sm space-y-2">
+                    <div className="bg-card rounded-lg border border-border p-4 text-left text-sm space-y-2">
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Version</span>
+                            <span className="text-muted-foreground">Version</span>
                             <span className="font-mono">{appVersion}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-gray-500">License</span>
+                            <span className="text-muted-foreground">License</span>
                             <span>MIT</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Backend</span>
+                            <span className="text-muted-foreground">Backend</span>
                             <span>Rust (Tauri)</span>
                         </div>
                     </div>
                     
-                    <p className="mt-8 text-xs text-gray-400">
+                    <p className="mt-8 text-xs text-muted-foreground">
                         © 2024 Terminoda Project. All rights reserved.
                     </p>
                 </div>

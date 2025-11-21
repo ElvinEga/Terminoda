@@ -113,7 +113,7 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-black text-foreground overflow-hidden relative font-sans">
+    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden relative font-sans">
       <AppSidebar 
         activeView={activeNavItem} 
         onViewChange={setActiveNavItem} 

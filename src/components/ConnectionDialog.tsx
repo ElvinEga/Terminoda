@@ -194,7 +194,7 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[600px] bg-[#0A0A0A] border-white/10 text-zinc-200">
+      <DialogContent className="sm:max-w-[600px] bg-background border-border text-foreground">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Connection" : "New Connection"}</DialogTitle>
           <DialogDescription>
@@ -279,9 +279,9 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                     {tags.map(tag => (
-                        <div key={tag} className="bg-zinc-800 text-zinc-300 px-2 py-1 rounded-md text-xs flex items-center gap-1">
+                        <div key={tag} className="bg-muted text-muted-foreground px-2 py-1 rounded-md text-xs flex items-center gap-1">
                             {tag}
-                            <button type="button" onClick={() => removeTag(tag)} className="hover:text-white">
+                            <button type="button" onClick={() => removeTag(tag)} className="hover:text-foreground">
                                 <X className="h-3 w-3" />
                             </button>
                         </div>
@@ -429,14 +429,14 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
                         )}
                     />
                 </div>
-                <div className="text-xs text-gray-500 bg-gray-50 dark:bg-[#2a2b3d] p-2 rounded">
+                <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                     <p>Keep-Alive helps prevent the server from closing the connection due to inactivity.</p>
                 </div>
               </TabsContent>
             </Tabs>
 
             {saveError && (
-              <p className="text-sm font-medium text-red-500">
+              <p className="text-sm font-medium text-destructive">
                 {saveError}
               </p>
             )}
