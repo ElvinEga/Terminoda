@@ -669,6 +669,78 @@ async fn upload_file(
     .map_err(|e: TransferError| e.to_string())
 }
 
+#[tauri::command]
+async fn create_directory(
+    session_id: String,
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let uuid = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
+    
+    if let Some(session_state) = state.sessions.get(&uuid) {
+        let sftp_lock = session_state.sftp.lock().unwrap();
+        if let Some(sftp) = &*sftp_lock {
+            // 0o755 is standard directory permission (rwxr-xr-x)
+            sftp.mkdir(Path::new(&path), 0o755).map_err(|e| e.to_string())?;
+            Ok(())
+        } else {
+            Err("SFTP not initialized".to_string())
+        }
+    } else {
+        Err("Session not found".to_string())
+    }
+}
+
+#[tauri::command]
+async fn delete_item(
+    session_id: String,
+    path: String,
+    is_dir: bool,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let uuid = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
+    
+    if let Some(session_state) = state.sessions.get(&uuid) {
+        let sftp_lock = session_state.sftp.lock().unwrap();
+        if let Some(sftp) = &*sftp_lock {
+            let path_obj = Path::new(&path);
+            if is_dir {
+                sftp.rmdir(path_obj).map_err(|e| e.to_string())?;
+            } else {
+                sftp.unlink(path_obj).map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        } else {
+            Err("SFTP not initialized".to_string())
+        }
+    } else {
+        Err("Session not found".to_string())
+    }
+}
+
+#[tauri::command]
+async fn rename_item(
+    session_id: String,
+    old_path: String,
+    new_path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let uuid = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
+    
+    if let Some(session_state) = state.sessions.get(&uuid) {
+        let sftp_lock = session_state.sftp.lock().unwrap();
+        if let Some(sftp) = &*sftp_lock {
+            sftp.rename(Path::new(&old_path), Path::new(&new_path), None)
+                .map_err(|e| e.to_string())?;
+            Ok(())
+        } else {
+            Err("SFTP not initialized".to_string())
+        }
+    } else {
+        Err("Session not found".to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let subscriber = FmtSubscriber::builder()
@@ -695,7 +767,10 @@ pub fn run() {
             upload_file,
             load_snippets,
             save_snippet,
-            delete_snippet
+            delete_snippet,
+            create_directory,
+            delete_item,
+            rename_item
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

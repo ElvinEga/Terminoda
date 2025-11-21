@@ -6,8 +6,11 @@ import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Folder, File, ArrowUp, Loader2, Download, Upload } from "lucide-react";
+import { Folder, File, ArrowUp, Loader2, Download, Upload, MoreVertical, FolderPlus, Trash2, Pencil } from "lucide-react";
 
 interface SftpFile {
   name: string;
@@ -41,6 +44,13 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<SftpFile | null>(null);
   const [transferState, setTransferState] = useState<TransferState | null>(null);
+
+  // Dialog States
+  const [isMkdirOpen, setIsMkdirOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [fileToEdit, setFileToEdit] = useState<SftpFile | null>(null);
 
   const fetchFiles = async () => {
     setIsLoading(true);
@@ -104,6 +114,54 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
     return new Date(timestamp * 1000).toLocaleString();
   };
 
+  const getFullPath = (name: string) => {
+    return currentPath === "/" ? `/${name}` : `${currentPath}/${name}`;
+  };
+
+  // --- Actions ---
+
+  const handleCreateDirectory = async () => {
+    if (!newFolderName) return;
+    const path = getFullPath(newFolderName);
+    try {
+        await invoke("create_directory", { sessionId, path });
+        toast.success("Folder created");
+        setNewFolderName("");
+        setIsMkdirOpen(false);
+        fetchFiles();
+    } catch (e) {
+        toast.error(`Failed to create folder: ${e}`);
+    }
+  };
+
+  const handleDelete = async (file: SftpFile) => {
+    if (!confirm(`Are you sure you want to delete ${file.name}?`)) return;
+    const path = getFullPath(file.name);
+    try {
+        await invoke("delete_item", { sessionId, path, isDir: file.is_dir });
+        toast.success("Item deleted");
+        fetchFiles();
+    } catch (e) {
+        toast.error(`Failed to delete: ${e}`);
+    }
+  };
+
+  const handleRename = async () => {
+    if (!fileToEdit || !renameValue || renameValue === fileToEdit.name) return;
+    const oldPath = getFullPath(fileToEdit.name);
+    const newPath = getFullPath(renameValue);
+    
+    try {
+        await invoke("rename_item", { sessionId, oldPath, newPath });
+        toast.success("Renamed successfully");
+        setIsRenameOpen(false);
+        setFileToEdit(null);
+        fetchFiles();
+    } catch (e) {
+        toast.error(`Rename failed: ${e}`);
+    }
+  };
+
   const handleDownload = async () => {
     if (!selectedFile || selectedFile.is_dir) {
       toast.warning("Select a file to download");
@@ -113,7 +171,7 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
     const localPath = await save({ defaultPath: selectedFile.name });
     if (!localPath) return;
 
-    const remotePath = currentPath === "/" ? `/${selectedFile.name}` : `${currentPath}/${selectedFile.name}`;
+    const remotePath = getFullPath(selectedFile.name);
     setTransferState({
       filePath: remotePath,
       transferredBytes: 0,
@@ -151,7 +209,7 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
       return;
     }
 
-    const remotePath = currentPath === "/" ? `/${fileName}` : `${currentPath}/${fileName}`;
+    const remotePath = getFullPath(fileName);
     setTransferState({
       filePath: localPath,
       transferredBytes: 0,
@@ -189,6 +247,7 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
 
   return (
     <div className="flex flex-col h-full bg-[#21222C] text-gray-300 p-4">
+      {/* Toolbar */}
       <div className="flex items-center gap-3 mb-2">
         <Button
           variant="outline"
@@ -203,6 +262,14 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
           {currentPath}
         </code>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setNewFolderName(""); setIsMkdirOpen(true); }}
+            disabled={isLoading || !!transferState}
+          >
+            <FolderPlus className="h-4 w-4 mr-1" /> New Folder
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -227,6 +294,7 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
         </div>
       </div>
 
+      {/* Progress Bar */}
       {transferState && (
         <div className="mb-3">
           <p className="text-xs text-gray-400 mb-1">
@@ -239,21 +307,23 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
         </div>
       )}
 
+      {/* File List */}
       <div className="flex-grow overflow-hidden border border-gray-700 rounded-md">
         <div className="overflow-auto h-full">
           <Table>
             <TableHeader className="sticky top-0 bg-[#282a36]">
               <TableRow>
-                <TableHead className="w-6/12">Name</TableHead>
-                <TableHead className="w-2/12">Size</TableHead>
-                <TableHead className="w-2/12">Modified</TableHead>
-                <TableHead className="w-2/12">Permissions</TableHead>
-              TableRow>
+                <TableHead className="w-[50%]">Name</TableHead>
+                <TableHead className="w-[15%]">Size</TableHead>
+                <TableHead className="w-[20%]">Modified</TableHead>
+                <TableHead className="w-[10%]">Perms</TableHead>
+                <TableHead className="w-[5%]"></TableHead>
+              </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">
+                  <TableCell colSpan={5} className="text-center py-8">
                     <div className="flex justify-center items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <span>Loading...</span>
@@ -262,7 +332,7 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
                 </TableRow>
               ) : files.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                     Empty directory
                   </TableCell>
                 </TableRow>
@@ -288,6 +358,27 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
                     <TableCell className="text-sm">{file.is_dir ? "-" : formatBytes(file.size)}</TableCell>
                     <TableCell className="text-sm text-gray-400">{formatDate(file.modified)}</TableCell>
                     <TableCell className="font-mono text-xs">{file.permissions}</TableCell>
+                    <TableCell>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => {
+                                    setFileToEdit(file);
+                                    setRenameValue(file.name);
+                                    setIsRenameOpen(true);
+                                }}>
+                                    <Pencil className="mr-2 h-4 w-4" /> Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDelete(file)} className="text-red-500 focus:text-red-500">
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -295,6 +386,43 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
           </Table>
         </div>
       </div>
+
+      {/* Mkdir Dialog */}
+      <Dialog open={isMkdirOpen} onOpenChange={setIsMkdirOpen}>
+        <DialogContent className="bg-[#2b2d3b] border-gray-700 text-white">
+            <DialogHeader>
+                <DialogTitle>New Folder</DialogTitle>
+            </DialogHeader>
+            <Input 
+                value={newFolderName} 
+                onChange={(e) => setNewFolderName(e.target.value)} 
+                placeholder="Folder Name" 
+                className="bg-[#191a21] border-gray-600"
+            />
+            <DialogFooter>
+                <Button variant="ghost" onClick={() => setIsMkdirOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreateDirectory} className="bg-blue-600 hover:bg-blue-700">Create</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
+        <DialogContent className="bg-[#2b2d3b] border-gray-700 text-white">
+            <DialogHeader>
+                <DialogTitle>Rename Item</DialogTitle>
+            </DialogHeader>
+            <Input 
+                value={renameValue} 
+                onChange={(e) => setRenameValue(e.target.value)} 
+                className="bg-[#191a21] border-gray-600"
+            />
+            <DialogFooter>
+                <Button variant="ghost" onClick={() => setIsRenameOpen(false)}>Cancel</Button>
+                <Button onClick={handleRename} className="bg-blue-600 hover:bg-blue-700">Rename</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
