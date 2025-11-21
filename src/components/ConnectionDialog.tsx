@@ -173,7 +173,7 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
 
     try {
       const savedHost = isEditing && editingHost
-        ? await invoke<SavedHost>("update_host", { updatedHost: { id: editingHost.id, name, group, tags, details } })
+        ? await invoke<SavedHost>("update_host", { updated_host: { id: editingHost.id, name, group, tags, details } })
         : await invoke<SavedHost>("save_new_host", { name, group, tags, details });
       
       if (isEditing && editingHost) {

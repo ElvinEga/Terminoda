@@ -551,11 +551,11 @@ fn close_session(session_id: String, state: State<'_, AppState>) -> Result<(), S
 fn update_host(
     updated_host: SavedHost,
     app_handle: AppHandle,
-) -> Result<(), String> {
+) -> Result<SavedHost, String> {
     let mut hosts = load_saved_hosts(app_handle.clone())?;
     
     if let Some(pos) = hosts.iter().position(|h| h.id == updated_host.id) {
-        hosts[pos] = updated_host;
+        hosts[pos] = updated_host.clone();
     } else {
         return Err("Host to update not found".to_string());
     }
@@ -564,7 +564,7 @@ fn update_host(
     let content = serde_json::to_string_pretty(&hosts).map_err(|e| e.to_string())?;
     fs::write(path, content).map_err(|e| e.to_string())?;
     
-    Ok(())
+    Ok(updated_host)
 }
 
 #[tauri::command]
