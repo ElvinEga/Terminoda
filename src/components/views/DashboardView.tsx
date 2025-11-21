@@ -36,9 +36,20 @@ export function DashboardView({ onConnect, onViewChange, activeSessions }: Dashb
   useEffect(() => {
       invoke<SavedHost[]>("load_saved_hosts").then(setHosts).catch(console.error);
       invoke<ConnectionLog[]>("load_history").then(data => {
-          // Sort by timestamp desc and take top 4
-          const sorted = data.sort((a, b) => b.timestamp - a.timestamp).slice(0, 4);
-          setRecentConnections(sorted);
+          // Sort by timestamp desc
+          const sorted = data.sort((a, b) => b.timestamp - a.timestamp);
+          
+          // Deduplicate by host + username
+          const uniqueMap = new Map<string, ConnectionLog>();
+          sorted.forEach(log => {
+              const key = `${log.host}:${log.username}`;
+              if (!uniqueMap.has(key)) {
+                  uniqueMap.set(key, log);
+              }
+          });
+          
+          // Take top 4 unique connections
+          setRecentConnections(Array.from(uniqueMap.values()).slice(0, 4));
       }).catch(console.error);
       invoke<any[]>("load_snippets").then(data => setSnippetCount(data.length)).catch(console.error);
       invoke<any[]>("load_ssh_keys").then(data => setKeyCount(data.length)).catch(console.error);
