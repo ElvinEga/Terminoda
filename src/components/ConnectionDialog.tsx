@@ -1,11 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { invoke } from "@tauri-apps/api/core"
 import { open } from "@tauri-apps/plugin-dialog"
-import { useState } from "react"
-import { FolderOpen, Settings2 } from "lucide-react"
+import { FolderOpen, Settings2, X, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -26,11 +25,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { SavedHost } from "./VaultSidebar"
 
 const formSchema = z.object({
   name: z.string().min(1, "Host name is required"),
   group: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   host: z.string().min(1, "Host is required"),
   port: z.coerce.number().min(1, "Port must be valid").min(1).max(65535).default(22),
   username: z.string().min(1, "Username is required"),
@@ -60,12 +61,17 @@ interface ConnectionDialogProps {
 
 export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: ConnectionDialogProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
+  const [customGroup, setCustomGroup] = useState("");
+  const [isCustomGroup, setIsCustomGroup] = useState(false);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as any,
     defaultValues: {
       name: "",
-      group: "General",
+      group: "Development",
+      tags: [],
       host: "",
       port: 22,
       username: "",
@@ -83,18 +89,30 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
   useEffect(() => {
     if (isOpen) {
       if (isEditing && editingHost) {
+        const group = editingHost.group || "Development";
+        const isCustom = !["Development", "Staging", "Production"].includes(group);
+        setIsCustomGroup(isCustom);
+        if (isCustom) setCustomGroup(group);
+        
+        setTags(editingHost.tags || []);
+        
         form.reset({
           name: editingHost.name,
-          group: editingHost.group || "General",
+          group: isCustom ? "custom" : group,
+          tags: editingHost.tags || [],
           ...editingHost.details,
           keepalive_interval: editingHost.details.keepalive_interval ?? 60,
           timeout: editingHost.details.timeout ?? 10000,
           authMethod: editingHost.details.private_key_path ? "key" : "password",
         });
       } else {
+        setTags([]);
+        setIsCustomGroup(false);
+        setCustomGroup("");
         form.reset({
           name: "",
-          group: "General",
+          group: "Development",
+          tags: [],
           host: "",
           port: 22,
           username: "",
@@ -121,9 +139,28 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
     }
   };
 
+  const addTag = () => {
+    if (newTag && !tags.includes(newTag)) {
+      const updatedTags = [...tags, newTag];
+      setTags(updatedTags);
+      form.setValue("tags", updatedTags);
+      setNewTag("");
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    const updatedTags = tags.filter(tag => tag !== tagToRemove);
+    setTags(updatedTags);
+    form.setValue("tags", updatedTags);
+  };
+
   async function onSubmit(values: FormValues) {
     setSaveError(null);
-    const { name, group, authMethod, ...baseDetails } = values;
+    let { name, group, authMethod, ...baseDetails } = values;
+    
+    if (group === "custom") {
+        group = customGroup;
+    }
 
     const details = {
       ...baseDetails,
@@ -136,14 +173,11 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
 
     try {
       const savedHost = isEditing && editingHost
-        ? await invoke<SavedHost>("update_host", { updatedHost: { id: editingHost.id, name, group, details } })
-        : await invoke<SavedHost>("save_new_host", { name, group, details, appHandle: null }); // appHandle is auto-injected by Tauri
-      
-      // For update_host, we might need to reconstruct the object if it returns void, but let's assume standard flow
-      // Actually update_host returns (), so we handle that in onSave
+        ? await invoke<SavedHost>("update_host", { updatedHost: { id: editingHost.id, name, group, tags, details } })
+        : await invoke<SavedHost>("save_new_host", { name, group, tags, details });
       
       if (isEditing && editingHost) {
-          onSave({ id: editingHost.id, name, group, details }, true);
+          onSave({ id: editingHost.id, name, group, tags, details }, true);
       } else {
           onSave(savedHost, false);
       }
@@ -158,7 +192,7 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[500px] bg-[#0A0A0A] border-white/10 text-zinc-200">
+      <DialogContent className="sm:max-w-[600px] bg-[#0A0A0A] border-white/10 text-zinc-200">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Connection" : "New Connection"}</DialogTitle>
           <DialogDescription>
@@ -169,7 +203,7 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             
-            <div className="flex gap-2">
+            <div className="flex gap-4">
                 <FormField
                 control={form.control}
                 name="name"
@@ -183,19 +217,74 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
                     </FormItem>
                 )}
                 />
-                <FormField
-                control={form.control}
-                name="group"
-                render={({ field }) => (
-                    <FormItem className="w-1/3">
-                    <FormLabel>Group</FormLabel>
-                    <FormControl>
-                        <Input placeholder="General" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                
+                <div className="w-1/3 space-y-2">
+                    <FormField
+                    control={form.control}
+                    name="group"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Group</FormLabel>
+                        <Select onValueChange={(val) => {
+                            field.onChange(val);
+                            setIsCustomGroup(val === "custom");
+                        }} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a group" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                <SelectItem value="Development">Development</SelectItem>
+                                <SelectItem value="Staging">Staging</SelectItem>
+                                <SelectItem value="Production">Production</SelectItem>
+                                <SelectItem value="custom">Custom...</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    {isCustomGroup && (
+                        <Input 
+                            placeholder="Custom Group Name" 
+                            value={customGroup} 
+                            onChange={(e) => setCustomGroup(e.target.value)}
+                            className="h-8 mt-1"
+                        />
+                    )}
+                </div>
+            </div>
+
+            {/* Tags Input */}
+            <div className="space-y-2">
+                <FormLabel>Tags</FormLabel>
+                <div className="flex gap-2">
+                    <Input 
+                        placeholder="Add a tag (e.g. aws, db)" 
+                        value={newTag} 
+                        onChange={(e) => setNewTag(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addTag();
+                            }
+                        }}
+                    />
+                    <Button type="button" variant="secondary" onClick={addTag} size="icon">
+                        <Plus className="h-4 w-4" />
+                    </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                    {tags.map(tag => (
+                        <div key={tag} className="bg-zinc-800 text-zinc-300 px-2 py-1 rounded-md text-xs flex items-center gap-1">
+                            {tag}
+                            <button type="button" onClick={() => removeTag(tag)} className="hover:text-white">
+                                <X className="h-3 w-3" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             <div className="flex gap-2">

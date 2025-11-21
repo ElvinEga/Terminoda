@@ -16,6 +16,7 @@ export interface SavedHost {
   id: string;
   name: string;
   group?: string;
+  tags?: string[];
   details: ConnectionDetails;
 }
 

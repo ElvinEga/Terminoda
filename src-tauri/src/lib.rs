@@ -72,6 +72,7 @@ pub struct SavedHost {
     pub id: String,
     pub name: String,
     pub group: Option<String>,
+    pub tags: Option<Vec<String>>,
     pub details: ConnectionDetails,
 }
 
@@ -501,6 +502,7 @@ fn load_saved_hosts(app_handle: AppHandle) -> Result<Vec<SavedHost>, String> {
 fn save_new_host(
     name: String,
     group: Option<String>,
+    tags: Option<Vec<String>>,
     details: ConnectionDetails,
     app_handle: AppHandle,
 ) -> Result<SavedHost, String> {
@@ -510,6 +512,7 @@ fn save_new_host(
         id: Uuid::new_v4().to_string(),
         name,
         group,
+        tags,
         details,
     };
 

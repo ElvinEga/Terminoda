@@ -153,7 +153,12 @@ export function DashboardView({ onConnect, onViewChange, activeSessions }: Dashb
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">Recent Connections</h2>
-            <button className="text-sm text-zinc-500 hover:text-white transition-colors">View all</button>
+            <button 
+                onClick={() => onViewChange?.('hosts')}
+                className="text-sm text-zinc-500 hover:text-white transition-colors"
+            >
+                View all
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

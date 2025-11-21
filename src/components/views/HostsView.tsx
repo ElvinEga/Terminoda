@@ -63,6 +63,12 @@ export function HostsView({ onConnect }: HostsViewProps) {
       return ["All Hosts", ...Array.from(unique).sort()];
   }, [hosts]);
 
+  // Compute Tags
+  const tags = useMemo(() => {
+      const allTags = hosts.flatMap(h => h.tags || []);
+      return Array.from(new Set(allTags)).sort();
+  }, [hosts]);
+
   // Filter Logic
   const filteredHosts = hosts.filter(host => {
       const matchesSearch = host.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -113,9 +119,14 @@ export function HostsView({ onConnect }: HostsViewProps) {
         </div>
 
         <div className="space-y-1 mt-auto">
-            {/* Placeholder Tags section since backend doesn't support it yet */}
-            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-2 opacity-50">Tags</h3>
-            <div className="px-2 text-xs text-zinc-600 italic">Coming soon...</div>
+            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-2">Tags</h3>
+            {tags.length === 0 && <div className="px-2 text-xs text-zinc-600 italic">No tags found</div>}
+            {tags.map(tag => (
+                <div key={tag} className="flex items-center gap-2 px-2 py-1 text-sm text-zinc-400 hover:text-white cursor-pointer group">
+                    <div className="w-2 h-2 rounded-full bg-blue-500/50 group-hover:bg-blue-500 transition-colors" />
+                    {tag}
+                </div>
+            ))}
         </div>
       </div>
 
@@ -191,11 +202,18 @@ export function HostsView({ onConnect }: HostsViewProps) {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {host.group && (
-                            <span className="px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 text-[10px] border border-white/5">
-                                {host.group}
-                            </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {host.tags && host.tags.map(tag => (
+                                <span key={tag} className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-[10px] border border-white/5">
+                                    {tag}
+                                </span>
+                            ))}
+                            {host.group && (
+                                <span className="px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 text-[10px] border border-white/5">
+                                    {host.group}
+                                </span>
+                            )}
+                        </div>
                         <div onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -248,11 +266,20 @@ export function HostsView({ onConnect }: HostsViewProps) {
                         <p className="text-xs text-zinc-500 font-mono truncate">{host.details.username}@{host.details.host}</p>
                     </div>
 
-                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
-                        <span className="text-[10px] text-zinc-600">{host.group || "Ungrouped"}</span>
-                        <button className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        Connect <Icons.ChevronRight className="w-3 h-3" />
-                        </button>
+                    <div className="mt-auto pt-2 border-t border-white/5">
+                         <div className="flex flex-wrap gap-1 mb-2">
+                            {host.tags && host.tags.map(tag => (
+                                 <span key={tag} className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[10px]">
+                                    {tag}
+                                </span>
+                            ))}
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-zinc-600">{host.group || "Ungrouped"}</span>
+                            <button className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            Connect <Icons.ChevronRight className="w-3 h-3" />
+                            </button>
+                        </div>
                     </div>
                     </motion.div>
                 ))}
