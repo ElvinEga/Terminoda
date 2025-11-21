@@ -120,7 +120,7 @@ function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      <main className="flex-1 relative overflow-hidden bg-[#050505] flex flex-col">
+      <main className="flex-1 relative overflow-hidden bg-background flex flex-col">
         {/* Decorative gradient - only visible on dashboard/hosts pages mostly */}
         {activeNavItem !== 'terminal' && (
             <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none z-0" />
