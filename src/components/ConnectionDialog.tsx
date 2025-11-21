@@ -156,14 +156,16 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
 
   async function onSubmit(values: FormValues) {
     setSaveError(null);
-    let { name, group, authMethod, ...baseDetails } = values;
+    let { name, group, tags, authMethod, ...baseDetails } = values;
     
     if (group === "custom") {
         group = customGroup;
     }
 
     const details = {
-      ...baseDetails,
+      host: baseDetails.host,
+      port: baseDetails.port,
+      username: baseDetails.username,
       password: authMethod === "password" ? baseDetails.password : undefined,
       private_key_path: authMethod === "key" ? baseDetails.private_key_path : undefined,
       passphrase: authMethod === "key" ? baseDetails.passphrase : undefined,
