@@ -7,7 +7,7 @@ use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::async_runtime;
 use tauri::{AppHandle, Emitter, State, Window};
 use thiserror::Error;
@@ -40,6 +40,15 @@ pub struct SftpFile {
     pub size: u64,
     pub permissions: String,
     pub modified: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionLog {
+    pub id: String,
+    pub host: String,
+    pub username: String,
+    pub timestamp: u64, // Unix timestamp
+    pub status: String, // "Success" or "Failed"
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,15 +129,89 @@ impl From<uuid::Error> for TransferError {
     }
 }
 
+fn get_history_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    let config_dir = std::env::var("HOME")
+        .map(|h| PathBuf::from(h).join(".config/terminoda"))
+        .unwrap_or_else(|_| {
+            PathBuf::from(std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string()))
+        });
+    Ok(config_dir.join("history.json"))
+}
+
+#[tauri::command]
+fn load_history(app_handle: AppHandle) -> Result<Vec<ConnectionLog>, String> {
+    let path = get_history_path(&app_handle)?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let history: Vec<ConnectionLog> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    
+    // Return reversed (newest first)
+    Ok(history.into_iter().rev().collect())
+}
+
+#[tauri::command]
+fn clear_history(app_handle: AppHandle) -> Result<(), String> {
+    let path = get_history_path(&app_handle)?;
+    if path.exists() {
+        fs::remove_file(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+// Helper to log connection
+fn log_connection_attempt(
+    app_handle: &AppHandle,
+    details: &ConnectionDetails,
+    status: &str
+) -> Result<(), String> {
+    let mut history = load_history(app_handle.clone()).unwrap_or_default();
+    
+    // Revert the reverse for appending
+    history.reverse();
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let log = ConnectionLog {
+        id: Uuid::new_v4().to_string(),
+        host: details.host.clone(),
+        username: details.username.clone(),
+        timestamp,
+        status: status.to_string(),
+    };
+
+    history.push(log);
+    
+    // Keep only last 100 entries
+    if history.len() > 100 {
+        history.remove(0);
+    }
+
+    let path = get_history_path(app_handle)?;
+    let content = serde_json::to_string_pretty(&history).map_err(|e| e.to_string())?;
+    fs::write(path, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 async fn connect_ssh(
     details: ConnectionDetails,
     terminal_type: Option<String>,
     state: State<'_, AppState>,
     window: Window,
+    app_handle: AppHandle,
 ) -> Result<String, String> {
     let sessions = state.sessions.clone();
     let window_clone = window.clone();
+    let details_clone = details.clone();
+    let app_handle_clone = app_handle.clone();
+
+    // Log the attempt start
+    let _ = log_connection_attempt(&app_handle, &details, "Connecting...");
 
     async_runtime::spawn_blocking(move || {
         info!(target = "connect_ssh", host = %details.host, "Starting SSH connection");
@@ -189,8 +272,12 @@ async fn connect_ssh(
         }
 
         if !sess.authenticated() {
+            let _ = log_connection_attempt(&app_handle_clone, &details_clone, "Failed (Auth)");
             return Err("Authentication failed".to_string());
         }
+
+        // Success
+        let _ = log_connection_attempt(&app_handle_clone, &details_clone, "Success");
 
         info!(target = "connect_ssh", "Opening channel session");
         let mut channel = sess.channel_session().map_err(|e| {
@@ -908,7 +995,9 @@ pub fn run() {
             delete_item,
             rename_item,
             load_known_hosts,
-            delete_known_host_entry
+            delete_known_host_entry,
+            load_history,
+            clear_history
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

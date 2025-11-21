@@ -11,8 +11,9 @@ import { SettingsModal } from './components/SettingsModal';
 import { SnippetsView } from './components/SnippetsView';
 import { SnippetPalette } from './components/SnippetPalette';
 import { KnownHostsView } from './components/KnownHostsView';
+import { HistoryView } from './components/HistoryView';
 import { PlaceholderView } from './components/PlaceholderView';
-import { X, Terminal, Files, PanelRight, Key, Network, History } from 'lucide-react';
+import { X, Terminal, Files, PanelRight, Key, Network } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 
 interface Session {
@@ -86,7 +87,7 @@ function App() {
       case 'port-forwarding':
         return <PlaceholderView title="Port Forwarding" icon={Network} description="Configure local and remote port forwarding tunnels visually." />;
       case 'history':
-        return <PlaceholderView title="History" icon={History} description="View logs of past connections and commands." />;
+        return <HistoryView />;
       default:
         return <Dashboard onConnect={handleConnect} />;
     }

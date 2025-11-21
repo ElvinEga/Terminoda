@@ -15,22 +15,47 @@ const draculaTheme = {
   foreground: '#f8f8f2',
   cursor: '#f8f8f2',
   selectionBackground: '#44475a',
-  black: '#000000',
-  brightBlack: '#4d4d4d',
+  cursorAccent: '#282a36', 
+  black: '#21222c',
   red: '#ff5555',
-  brightRed: '#ff6e6e',
   green: '#50fa7b',
-  brightGreen: '#69ff94',
   yellow: '#f1fa8c',
-  brightYellow: '#ffffa5',
   blue: '#bd93f9',
-  brightBlue: '#d6acff',
   magenta: '#ff79c6',
-  brightMagenta: '#ff92df',
   cyan: '#8be9fd',
-  brightCyan: '#a4ffff',
   white: '#f8f8f2',
+  brightBlack: '#6272a4',
+  brightRed: '#ff6e6e',
+  brightGreen: '#69ff94',
+  brightYellow: '#ffffa5',
+  brightBlue: '#d6acff',
+  brightMagenta: '#ff92df',
+  brightCyan: '#a4ffff',
   brightWhite: '#ffffff',
+};
+
+const lightTheme = {
+  background: '#ffffff',
+  foreground: '#2e3440',
+  cursor: '#2e3440',
+  selectionBackground: '#d8dee9',
+  cursorAccent: '#ffffff',
+  black: '#3b4252',
+  red: '#bf616a',
+  green: '#a3be8c',
+  yellow: '#ebcb8b',
+  blue: '#81a1c1',
+  magenta: '#b48ead',
+  cyan: '#88c0d0',
+  white: '#e5e9f0',
+  brightBlack: '#4c566a',
+  brightRed: '#bf616a',
+  brightGreen: '#a3be8c',
+  brightYellow: '#ebcb8b',
+  brightBlue: '#81a1c1',
+  brightMagenta: '#b48ead',
+  brightCyan: '#8fbcbb',
+  brightWhite: '#eceff4',
 };
 
 interface TerminalProps {
@@ -52,6 +77,16 @@ export function Terminal({ sessionId }: TerminalProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState("");
 
+  const getTheme = () => {
+     if (settings.theme === 'dark') return draculaTheme;
+     if (settings.theme === 'light') return lightTheme;
+     
+     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+         return draculaTheme;
+     }
+     return lightTheme;
+  };
+
   useEffect(() => {
     if (!termRef.current || xtermRef.current) {
       return;
@@ -61,7 +96,7 @@ export function Terminal({ sessionId }: TerminalProps) {
       fontFamily: settings.terminalFontFamily,
       fontSize: settings.terminalFontSize,
       cursorBlink: true,
-      theme: draculaTheme,
+      theme: getTheme(),
       allowProposedApi: true,
       bellStyle: settings.bellSound ? 'sound' : 'none',
     });
@@ -153,10 +188,11 @@ export function Terminal({ sessionId }: TerminalProps) {
       xtermRef.current.options.fontSize = settings.terminalFontSize;
       xtermRef.current.options.fontFamily = settings.terminalFontFamily;
       xtermRef.current.options.bellStyle = settings.bellSound ? 'sound' : 'none';
+      xtermRef.current.options.theme = getTheme();
       const resizeEvent = new Event('resize');
       window.dispatchEvent(resizeEvent); 
     }
-  }, [settings.terminalFontSize, settings.terminalFontFamily, settings.bellSound]);
+  }, [settings.terminalFontSize, settings.terminalFontFamily, settings.bellSound, settings.theme]);
 
   // Handle Search Logic
   useEffect(() => {
