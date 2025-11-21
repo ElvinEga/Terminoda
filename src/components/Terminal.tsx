@@ -6,7 +6,7 @@ import { WebLinksAddon } from 'xterm-addon-web-links';
 import { SearchAddon } from 'xterm-addon-search';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
-import { Search, ArrowUp, ArrowDown, X, Activity, Box } from 'lucide-react';
+import { Search, ArrowUp, ArrowDown, X, Box } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -84,7 +84,7 @@ export function Terminal({ sessionId, host, name }: TerminalProps) {
   
   // Status Bar State
   const [dimensions, setDimensions] = useState({ rows: 0, cols: 0 });
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected] = useState(true);
 
   useEffect(() => {
     if (!termRef.current || xtermRef.current) {
@@ -246,27 +246,28 @@ export function Terminal({ sessionId, host, name }: TerminalProps) {
         </div>
 
         {/* Status Bar */}
-        <div className="h-6 bg-[#191a21] border-t border-gray-700 flex items-center justify-between px-3 text-[10px] text-gray-400 select-none">
+        <div className="h-8 bg-black border-t border-white/10 flex items-center justify-between px-4 text-[10px] text-zinc-500 font-mono select-none shrink-0">
             <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5">
-                    <div className={cn("w-2 h-2 rounded-full", isConnected ? "bg-green-500" : "bg-red-500")} />
-                    <span className={cn("font-medium", isConnected ? "text-green-500" : "text-red-500")}>
-                        {isConnected ? "Connected" : "Disconnected"}
+                <div className="flex items-center gap-2">
+                    <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", isConnected ? "bg-green-500" : "bg-red-500")} />
+                    <span className={isConnected ? "text-zinc-300" : "text-red-400"}>
+                        {isConnected ? "SSH-2.0" : "Disconnected"}
                     </span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 text-zinc-400">
                     <Box className="h-3 w-3" />
-                    <span>{name} ({host})</span>
+                    <span>{name}</span>
+                    <span className="text-zinc-600">({host})</span>
                 </div>
             </div>
 
             <div className="flex items-center gap-4">
+                <span>UTF-8</span>
                 <div className="flex items-center gap-1.5">
-                    <Activity className="h-3 w-3" />
-                    <span>SSH-2.0</span>
-                </div>
-                <div className="font-mono">
-                    {dimensions.cols} x {dimensions.rows}
+                    <div className="w-3 h-3 border border-zinc-700 rounded-[1px] flex items-center justify-center">
+                         <div className="w-1 h-1 bg-zinc-500 rounded-full" />
+                    </div>
+                    {dimensions.cols}x{dimensions.rows}
                 </div>
             </div>
         </div>

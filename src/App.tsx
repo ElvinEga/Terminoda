@@ -13,7 +13,6 @@ import { SnippetPalette } from "./components/SnippetPalette";
 import { KnownHostsView } from "./components/KnownHostsView";
 import { HistoryView } from "./components/HistoryView";
 import { X, PanelRight } from "lucide-react";
-import { useSettings } from "./context/SettingsContext";
 
 interface Session {
   id: string;
@@ -28,7 +27,6 @@ function App() {
   const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showSnippets, setShowSnippets] = useState(false);
-  const { settings } = useSettings();
 
   const handleConnect = async (details: ConnectionDetails, name?: string) => {
     try {
@@ -116,12 +114,15 @@ function App() {
                         <TabsTrigger 
                           key={session.id} 
                           value={session.id}
-                          className="data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-white text-zinc-400 h-8 px-3 text-xs rounded-md border border-transparent data-[state=active]:border-white/10 flex items-center gap-2 transition-all"
+                          className="group relative data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-white text-zinc-500 hover:text-zinc-300 h-8 px-3 text-xs font-medium rounded-t-md border-t border-x border-transparent data-[state=active]:border-white/10 flex items-center gap-2 transition-all select-none data-[state=active]:shadow-sm"
                         >
-                            {session.name}
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-zinc-700 group-data-[state=active]:bg-green-500/50 transition-colors" />
+                                {session.name}
+                            </div>
                             <div 
                                 role="button"
-                                className="hover:bg-white/20 rounded p-0.5"
+                                className="opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded p-0.5 text-zinc-500 hover:text-zinc-300 transition-all"
                                 onClick={(e) => closeSession(e, session.id)}
                             >
                                 <X className="h-3 w-3" />

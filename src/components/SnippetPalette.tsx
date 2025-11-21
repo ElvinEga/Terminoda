@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Snippet } from "./SnippetsView";
 import { Button } from "@/components/ui/button";
-import { Play, Search, MoreHorizontal, Trash2 } from "lucide-react";
+import { Icons } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -46,14 +46,14 @@ export function SnippetPalette({ sessionId }: SnippetPaletteProps) {
   const filtered = snippets.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="flex flex-col h-full bg-[#21222C] border-l border-gray-700 w-64 shrink-0">
-      <div className="p-3 border-b border-gray-700">
-        <h3 className="text-sm font-semibold text-gray-400 mb-2">Snippets</h3>
+    <div className="flex flex-col h-full bg-black/20 border-l border-white/10 w-64 shrink-0">
+      <div className="p-3 border-b border-white/10">
+        <h3 className="text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Snippets</h3>
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500" />
+          <Icons.Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-500" />
           <Input 
-            className="h-8 pl-8 bg-[#191a21] border-gray-600 text-xs text-gray-300 placeholder:text-gray-600" 
-            placeholder="Filter..." 
+            className="h-7 pl-8 bg-white/5 border-white/10 text-xs text-zinc-300 placeholder:text-zinc-600 focus-visible:ring-1 focus-visible:ring-white/20" 
+            placeholder="Filter snippets..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -62,23 +62,23 @@ export function SnippetPalette({ sessionId }: SnippetPaletteProps) {
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
           {filtered.length === 0 ? (
-              <p className="text-xs text-gray-600 text-center py-4">No snippets found.</p>
+              <p className="text-xs text-zinc-600 text-center py-8">No snippets found</p>
           ) : (
             filtered.map(s => (
-                <div key={s.id} className="flex items-center justify-between p-2 hover:bg-[#343746] rounded group border border-transparent hover:border-gray-700">
-                <div className="flex flex-col overflow-hidden mr-2">
-                    <span className="text-sm text-gray-200 truncate">{s.name}</span>
-                    <span className="text-xs text-gray-500 truncate font-mono" title={s.command}>{s.command}</span>
+                <div key={s.id} className="flex items-center justify-between p-2 hover:bg-white/5 rounded-md group border border-transparent hover:border-white/5 transition-all">
+                <div className="flex flex-col overflow-hidden mr-2 min-w-0">
+                    <span className="text-xs font-medium text-zinc-300 truncate group-hover:text-white transition-colors">{s.name}</span>
+                    <span className="text-[10px] text-zinc-500 truncate font-mono mt-0.5" title={s.command}>{s.command}</span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button 
                         size="icon" 
                         variant="ghost" 
-                        className="h-6 w-6 text-green-500 hover:text-green-400 hover:bg-green-500/20"
+                        className="h-6 w-6 text-zinc-400 hover:text-green-400 hover:bg-green-500/10"
                         onClick={() => runSnippet(s.command)}
                         title="Run"
                     >
-                        <Play className="h-3 w-3" />
+                        <Icons.ChevronRight className="h-3 w-3" />
                     </Button>
                     
                     <DropdownMenu>
@@ -86,17 +86,17 @@ export function SnippetPalette({ sessionId }: SnippetPaletteProps) {
                             <Button 
                                 size="icon" 
                                 variant="ghost" 
-                                className="h-6 w-6 text-gray-500 hover:text-white hover:bg-gray-600"
+                                className="h-6 w-6 text-zinc-400 hover:text-white hover:bg-white/10"
                             >
-                                <MoreHorizontal className="h-3 w-3" />
+                                <Icons.More className="h-3 w-3" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-32">
+                        <DropdownMenuContent align="end" className="w-32 bg-[#111] border-white/10 text-zinc-300">
                             <DropdownMenuItem 
-                                className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
+                                className="text-red-400 focus:text-red-400 focus:bg-red-500/10 text-xs"
                                 onClick={() => deleteSnippet(s.id)}
                             >
-                                <Trash2 className="mr-2 h-3 w-3" /> Delete
+                                <Icons.Trash className="mr-2 h-3 w-3" /> Delete
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
