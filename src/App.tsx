@@ -10,7 +10,9 @@ import { Dashboard } from './components/Dashboard';
 import { SettingsModal } from './components/SettingsModal';
 import { SnippetsView } from './components/SnippetsView';
 import { SnippetPalette } from './components/SnippetPalette';
-import { X, Terminal, Files, PanelRight } from 'lucide-react';
+import { KnownHostsView } from './components/KnownHostsView';
+import { PlaceholderView } from './components/PlaceholderView';
+import { X, Terminal, Files, PanelRight, Key, Network, History } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 
 interface Session {
@@ -25,7 +27,6 @@ function App() {
   const [activeNavItem, setActiveNavItem] = useState('hosts');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showSnippets, setShowSnippets] = useState(false);
-
   const { settings } = useSettings();
 
   const handleConnect = async (details: ConnectionDetails, name: string) => {
@@ -71,11 +72,34 @@ function App() {
     }
   };
 
+  // Helper to render the main content area based on navigation
+  const renderMainContent = () => {
+    switch (activeNavItem) {
+      case 'hosts':
+        return <Dashboard onConnect={handleConnect} />;
+      case 'snippets':
+        return <SnippetsView />;
+      case 'known-hosts':
+        return <KnownHostsView />;
+      case 'keychain':
+        return <PlaceholderView title="Keychain" icon={Key} description="Manage your SSH keys and passwords securely in one place." />;
+      case 'port-forwarding':
+        return <PlaceholderView title="Port Forwarding" icon={Network} description="Configure local and remote port forwarding tunnels visually." />;
+      case 'history':
+        return <PlaceholderView title="History" icon={History} description="View logs of past connections and commands." />;
+      default:
+        return <Dashboard onConnect={handleConnect} />;
+    }
+  };
+
   return (
     <main className="flex h-screen bg-[#f4f5f7] dark:bg-[#1e1e2e] text-gray-900 dark:text-gray-100">
       <Sidebar 
         activeItem={activeNavItem} 
-        onItemSelect={setActiveNavItem} 
+        onItemSelect={(item) => {
+            setActiveNavItem(item);
+            setActiveTab(undefined); // Switch back to dashboard view when nav changes
+        }} 
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
@@ -89,9 +113,10 @@ function App() {
                   className={`flex items-center px-4 py-2 cursor-pointer border-r border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-[#2a2b3d] ${!activeTab ? 'bg-gray-100 dark:bg-[#2a2b3d]' : ''}`}
                   onClick={() => setActiveTab(undefined)}
                 >
-                   <span className="text-sm font-medium">Dashboard</span>
+                   <span className="text-sm font-medium">Home</span>
                 </div>
 
+                {/* Session Tabs */}
                 {sessions.map((session) => (
                   <div key={session.id} className="flex items-center group relative border-r border-gray-200 dark:border-gray-800">
                     <TabsTrigger 
@@ -119,13 +144,9 @@ function App() {
 
             {/* Content Area */}
             <div className="flex-grow overflow-hidden relative">
-               {/* If no active tab (undefined), show Dashboard */}
+               {/* If no active tab (undefined), show Navigation Content */}
                <div className={`absolute inset-0 ${activeTab ? 'hidden' : 'block'}`}>
-                  {activeNavItem === 'snippets' ? (
-                    <SnippetsView />
-                  ) : (
-                    <Dashboard onConnect={handleConnect} />
-                  )}
+                  {renderMainContent()}
                </div>
 
                {/* Session Content */}
@@ -171,11 +192,8 @@ function App() {
             </div>
           </Tabs>
         ) : (
-          activeNavItem === 'snippets' ? (
-            <SnippetsView />
-          ) : (
-            <Dashboard onConnect={handleConnect} />
-          )
+          // No sessions open, show Navigation Content
+          renderMainContent()
         )}
       </div>
       

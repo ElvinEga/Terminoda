@@ -70,6 +70,15 @@ pub struct Snippet {
     pub command: String,
 }
 
+#[derive(Serialize)]
+pub struct KnownHostEntry {
+    pub line_number: usize,
+    pub marker: String,
+    pub hostnames: String,
+    pub key_type: String,
+    pub key_preview: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct TerminalOutputPayload {
     session_id: String,
@@ -743,6 +752,86 @@ async fn rename_item(
     }
 }
 
+#[tauri::command]
+fn load_known_hosts() -> Result<Vec<KnownHostEntry>, String> {
+    let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE"))
+        .map_err(|_| "Could not find home directory".to_string())?;
+    let path = Path::new(&home).join(".ssh").join("known_hosts");
+    
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    
+    let mut entries = Vec::new();
+    for (i, line) in content.lines().enumerate() {
+        if line.trim().is_empty() || line.starts_with('#') {
+            continue;
+        }
+        
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        // Format mostly: [marker] hostnames keytype key comment
+        
+        if parts.len() >= 3 {
+            let (marker, hostnames, key_type, key) = if parts[0].starts_with('@') {
+                (parts[0].to_string(), parts[1].to_string(), parts[2].to_string(), parts[3].to_string())
+            } else {
+                ("".to_string(), parts[0].to_string(), parts[1].to_string(), parts[2].to_string())
+            };
+
+            let key_len = key.len();
+            let key_preview = if key_len > 20 {
+                format!("{}...{}", &key[0..10], &key[key_len-10..])
+            } else {
+                key
+            };
+
+            entries.push(KnownHostEntry {
+                line_number: i + 1, // 1-based index for specific line targeting
+                marker,
+                hostnames,
+                key_type,
+                key_preview,
+            });
+        }
+    }
+    
+    Ok(entries)
+}
+
+#[tauri::command]
+fn delete_known_host_entry(line_number: usize) -> Result<(), String> {
+    let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE"))
+        .map_err(|_| "Could not find home directory".to_string())?;
+    let path = Path::new(&home).join(".ssh").join("known_hosts");
+    
+    let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let lines: Vec<&str> = content.lines().collect();
+    
+    // Filter out the line (converting 1-based line_number back to 0-based index)
+    if line_number == 0 || line_number > lines.len() {
+        return Err("Invalid line number".to_string());
+    }
+
+    let new_content = lines.iter().enumerate()
+        .filter(|(i, _)| *i != (line_number - 1)) 
+        .map(|(_, line)| *line)
+        .collect::<Vec<&str>>()
+        .join("\n");
+        
+    // Preserve trailing newline if it existed
+    let final_content = if content.ends_with('\n') {
+        new_content + "\n"
+    } else {
+        new_content
+    };
+
+    fs::write(path, final_content).map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let subscriber = FmtSubscriber::builder()
@@ -772,7 +861,9 @@ pub fn run() {
             delete_snippet,
             create_directory,
             delete_item,
-            rename_item
+            rename_item,
+            load_known_hosts,
+            delete_known_host_entry
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

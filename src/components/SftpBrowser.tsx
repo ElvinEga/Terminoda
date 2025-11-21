@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useSettings } from "@/context/SettingsContext";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ interface TransferProgressPayload {
 }
 
 export function SftpBrowser({ sessionId }: SftpBrowserProps) {
+  const { settings } = useSettings();
   const [files, setFiles] = useState<SftpFile[]>([]);
   const [currentPath, setCurrentPath] = useState<string>("/");
   const [isLoading, setIsLoading] = useState(false);
@@ -117,6 +119,11 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
   const getFullPath = (name: string) => {
     return currentPath === "/" ? `/${name}` : `${currentPath}/${name}`;
   };
+
+  const visibleFiles = files.filter(file => {
+    if (settings.sftpShowHiddenFiles) return true;
+    return !file.name.startsWith('.');
+  });
 
   // --- Actions ---
 
@@ -330,14 +337,14 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : files.length === 0 ? (
+              ) : visibleFiles.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                     Empty directory
                   </TableCell>
                 </TableRow>
               ) : (
-                files.map((file) => (
+                visibleFiles.map((file) => (
                   <TableRow
                     key={file.name}
                     onDoubleClick={file.is_dir ? () => handleNavigate(file.name) : undefined}

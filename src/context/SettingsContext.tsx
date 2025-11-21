@@ -9,6 +9,7 @@ interface Settings {
   terminalEmulation: string;
   autoConnect: boolean;
   bellSound: boolean;
+  sftpShowHiddenFiles: boolean;
 }
 
 interface SettingsContextType {
@@ -23,6 +24,7 @@ const defaultSettings: Settings = {
   terminalEmulation: 'xterm-256color',
   autoConnect: true,
   bellSound: false,
+  sftpShowHiddenFiles: false,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
