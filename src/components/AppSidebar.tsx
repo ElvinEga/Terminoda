@@ -11,6 +11,7 @@ interface SidebarProps {
 export function AppSidebar({ activeView, onViewChange, onOpenSettings }: SidebarProps) {
   const navItems = [
     { id: "dashboard", icon: Icons.Zap, label: "Dashboard" },
+    { id: "terminal", icon: Icons.Terminal, label: "Terminal" },
     { id: "hosts", icon: Icons.Server, label: "Hosts" },
     { id: "known-hosts", icon: Icons.Shield, label: "Known Hosts" },
     { id: "snippets", icon: Icons.Command, label: "Snippets" },

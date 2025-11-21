@@ -1,164 +1,183 @@
-import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { Toaster } from "@/components/ui/sonner";
-import { Terminal } from "./components/Terminal";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { AppSidebar } from "./components/AppSidebar";
-import { ConnectionDetails } from "./components/VaultSidebar";
-import { DashboardView } from "./components/views/DashboardView";
-import { SettingsModal } from "./components/SettingsModal";
-import { SnippetsView } from "./components/SnippetsView";
-import { SnippetPalette } from "./components/SnippetPalette";
-import { KnownHostsView } from "./components/KnownHostsView";
-import { HistoryView } from "./components/HistoryView";
-import { X, PanelRight } from "lucide-react";
+import { useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { Toaster, toast } from 'sonner';
+import { ConnectionDetails } from './components/VaultSidebar';
+import { DashboardView } from './components/views/DashboardView';
+import { HostsView } from './components/views/HostsView';
+import { TerminalView } from './components/views/TerminalView'; // New View
+import { KnownHostsView } from './components/KnownHostsView';
+import { SnippetsView } from './components/SnippetsView';
+import { SettingsModal } from './components/SettingsModal';
+import { AppSidebar } from './components/AppSidebar';
+import { PlaceholderView } from './components/PlaceholderView';
+import { Icons } from "@/components/ui/icons";
+import { useSettings } from '@/context/SettingsContext';
+import { motion, AnimatePresence } from "framer-motion";
 
-interface Session {
+// Export this interface so TerminalView can use it
+export interface Session {
   id: string;
-  name: string;
   host: string;
-  type: 'ssh';
+  name: string;
 }
 
 function App() {
-  const [activeNavItem, setActiveNavItem] = useState("dashboard");
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
+  const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
+  const [activeNavItem, setActiveNavItem] = useState('dashboard');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [showSnippets, setShowSnippets] = useState(false);
+  const { settings } = useSettings();
 
-  const handleConnect = async (details: ConnectionDetails, name?: string) => {
+  // Loading Overlay State
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectingHost, setConnectingHost] = useState<string>("");
+
+  const handleConnect = async (details: ConnectionDetails, name: string) => {
+    setConnectingHost(name);
+    setIsConnecting(true);
+    
     try {
-        const sessionId = await invoke<string>('connect_ssh', {
-            host: details.host,
-            port: typeof details.port === 'string' ? parseInt(details.port) : details.port,
-            username: details.username,
-            password: details.password || null,
-            privateKeyPath: details.private_key_path || null,
+        const newSessionId = await invoke<string>('connect_ssh', { 
+            details, 
+            terminalType: settings.terminalEmulation 
         });
-        
-        const newSession: Session = {
-            id: sessionId,
-            name: name || details.host,
-            host: details.host,
-            type: 'ssh'
-        };
-        
-        setSessions(prev => [...prev, newSession]);
-        setActiveTab(sessionId);
-        setActiveNavItem('terminal'); // Switch to terminal view
-    } catch (error) {
-        console.error('Connection failed:', error);
-        // In a real app, show a toast notification here
+
+        setTimeout(() => {
+            const newSession: Session = {
+                id: newSessionId,
+                host: details.host,
+                name,
+            };
+            setSessions(prev => [...prev, newSession]);
+            setActiveSessionId(newSessionId); // Set active session
+            setActiveNavItem('terminal'); // Switch view to Terminal
+            setIsConnecting(false);
+            toast.success(`Connected to ${name}`);
+        }, 800);
+
+    } catch (err) {
+        setIsConnecting(false);
+        toast.error(`Connection failed: ${err}`);
     }
   };
 
-  const closeSession = async (e: React.MouseEvent, sessionId: string) => {
-    e.stopPropagation();
+  const handleCloseSession = async (sessionId: string) => {
     try {
-        await invoke('close_session', { sessionId });
-        setSessions(prev => prev.filter(s => s.id !== sessionId));
-        if (activeTab === sessionId) {
-            setActiveTab(sessions.find(s => s.id !== sessionId)?.id);
-        }
+      await invoke('close_session', { sessionId });
     } catch (error) {
-        console.error('Failed to close session:', error);
+      console.error("Failed to close session:", error);
+    } finally {
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      if (activeSessionId === sessionId) {
+        const remaining = sessions.filter(s => s.id !== sessionId);
+        // If we have other sessions, switch to the last one, otherwise go to dashboard
+        if (remaining.length > 0) {
+            setActiveSessionId(remaining[remaining.length - 1].id);
+        } else {
+            setActiveSessionId(undefined);
+            setActiveNavItem('dashboard');
+        }
+      }
+    }
+  };
+
+  const renderMainContent = () => {
+    switch (activeNavItem) {
+      case 'dashboard':
+        return <DashboardView onConnect={handleConnect} />;
+      case 'hosts':
+        return <HostsView onConnect={handleConnect} />;
+      case 'terminal':
+        // The Terminal View manages the tabs for all active sessions
+        return (
+            <TerminalView 
+                sessions={sessions} 
+                activeSessionId={activeSessionId}
+                onSessionChange={setActiveSessionId}
+                onCloseSession={handleCloseSession}
+                onNewConnection={() => setActiveNavItem('hosts')}
+            />
+        );
+      case 'snippets':
+        return <SnippetsView />;
+      case 'known-hosts':
+        return <KnownHostsView />;
+      case 'keys':
+        return <PlaceholderView title="Keychain" icon={Icons.Key} description="Manage your SSH keys securely." />;
+      case 'history':
+        return <PlaceholderView title="History" icon={Icons.Activity} description="View connection logs." />;
+      default:
+        return <DashboardView onConnect={handleConnect} />;
     }
   };
 
   return (
     <div className="flex h-screen w-screen bg-black text-foreground overflow-hidden relative font-sans">
-      {/* Use the NEW Sidebar */}
       <AppSidebar 
         activeView={activeNavItem} 
-        onViewChange={(view) => {
-            setActiveNavItem(view);
-            setActiveTab(undefined);
-        }} 
+        onViewChange={setActiveNavItem} 
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       <main className="flex-1 relative overflow-hidden bg-[#050505] flex flex-col">
-        {/* Decorative gradient from new design */}
-        <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none z-0" />
-        
-        {/* Existing Tab/Content logic wrapped in a z-indexed div */}
-        <div className="flex-1 z-10 relative flex flex-col h-full">
-          {activeNavItem === 'dashboard' && !activeTab && (
-             <DashboardView onConnect={handleConnect} />
-          )}
+        {/* Decorative gradient - only visible on dashboard/hosts pages mostly */}
+        {activeNavItem !== 'terminal' && (
+            <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none z-0" />
+        )}
 
-          {activeNavItem === 'hosts' && !activeTab && (
-             <DashboardView onConnect={handleConnect} />
-          )}
+        <AnimatePresence mode="wait">
+            <motion.div
+                key={activeNavItem}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="h-full w-full z-10"
+            >
+                {renderMainContent()}
+            </motion.div>
+        </AnimatePresence>
 
-          {activeNavItem === 'snippets' && !activeTab && (
-             <SnippetsView />
-          )}
-
-          {activeNavItem === 'known-hosts' && !activeTab && (
-             <KnownHostsView />
-          )}
-
-          {activeNavItem === 'history' && !activeTab && (
-             <HistoryView />
-          )}
-
-          {/* Terminal Tabs */}
-          {sessions.length > 0 && (activeNavItem === 'terminal' || activeTab) && (
-             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col h-full">
-                <div className="bg-[#0A0A0A] border-b border-white/10 px-2 flex items-center gap-2 h-10 shrink-0">
-                  <TabsList className="bg-transparent p-0 h-full gap-1">
-                    {sessions.map(session => (
-                        <TabsTrigger 
-                          key={session.id} 
-                          value={session.id}
-                          className="group relative data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-white text-zinc-500 hover:text-zinc-300 h-8 px-3 text-xs font-medium rounded-t-md border-t border-x border-transparent data-[state=active]:border-white/10 flex items-center gap-2 transition-all select-none data-[state=active]:shadow-sm"
-                        >
-                            <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-zinc-700 group-data-[state=active]:bg-green-500/50 transition-colors" />
-                                {session.name}
-                            </div>
-                            <div 
-                                role="button"
-                                className="opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded p-0.5 text-zinc-500 hover:text-zinc-300 transition-all"
-                                onClick={(e) => closeSession(e, session.id)}
-                            >
-                                <X className="h-3 w-3" />
-                            </div>
-                        </TabsTrigger>
-                    ))}
-                  </TabsList>
+        {/* Connecting Overlay */}
+        <AnimatePresence>
+          {isConnecting && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm"
+            >
+              <div className="flex flex-col items-center gap-6">
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                    className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500/50"
+                  />
+                  <motion.div
+                    animate={{ rotate: -180 }}
+                    transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                    className="absolute inset-2 rounded-full border-t-2 border-l-2 border-purple-500/50"
+                  />
+                  <Icons.Server className="w-8 h-8 text-white" />
                 </div>
-                
-                {sessions.map(session => (
-                    <TabsContent key={session.id} value={session.id} className="flex-grow p-0 m-0 mt-0 relative flex flex-col data-[state=inactive]:hidden h-full">
-                        <div className="flex-grow relative flex overflow-hidden h-full">
-                            <Terminal 
-                                sessionId={session.id} 
-                                host={session.host}
-                                name={session.name}
-                            />
-                            
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="absolute top-2 right-4 z-10 bg-black/20 hover:bg-black/40 text-white/50 hover:text-white"
-                                onClick={() => setShowSnippets(!showSnippets)}
-                            >
-                                <PanelRight className="h-4 w-4" />
-                            </Button>
-
-                            {showSnippets && (
-                                <SnippetPalette sessionId={session.id} />
-                            )}
-                        </div>
-                    </TabsContent>
-                ))}
-             </Tabs>
+                <div className="text-center space-y-2">
+                  <h3 className="text-xl font-medium text-white">Connecting to {connectingHost}...</h3>
+                  <p className="text-sm text-zinc-500 font-mono">Establishing secure tunnel</p>
+                </div>
+                <div className="w-64 h-1 bg-zinc-800 rounded-full overflow-hidden mt-4">
+                  <motion.div
+                    initial={{ x: "-100%" }}
+                    animate={{ x: "100%" }}
+                    transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                    className="h-full w-1/2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+                  />
+                </div>
+              </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
+
       </main>
       
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />

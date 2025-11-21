@@ -6,10 +6,9 @@ import { WebLinksAddon } from 'xterm-addon-web-links';
 import { SearchAddon } from 'xterm-addon-search';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
-import { Search, ArrowUp, ArrowDown, X, Box } from 'lucide-react';
+import { Search, ArrowUp, ArrowDown, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 // Theme definitions
 const draculaTheme = {
@@ -62,8 +61,7 @@ const lightTheme = {
 
 interface TerminalProps {
   sessionId: string;
-  host: string;
-  name: string;
+  onResize?: (cols: number, rows: number) => void; // Callback for status bar
 }
 
 interface TerminalOutputPayload {
@@ -71,32 +69,34 @@ interface TerminalOutputPayload {
   data: number[];
 }
 
-export function Terminal({ sessionId, host, name }: TerminalProps) {
+export function Terminal({ sessionId, onResize }: TerminalProps) {
   const termRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Xterm | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const { settings } = useSettings();
   
-  // UI State
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState("");
-  
-  // Status Bar State
-  const [dimensions, setDimensions] = useState({ rows: 0, cols: 0 });
-  const [isConnected] = useState(true);
+
+  // Helper to get theme
+  const getTheme = () => {
+     if (settings.theme === 'dark') return draculaTheme;
+     if (settings.theme === 'light') return lightTheme;
+     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return draculaTheme;
+     return lightTheme;
+  };
 
   useEffect(() => {
-    if (!termRef.current || xtermRef.current) {
-      return;
-    }
+    if (!termRef.current || xtermRef.current) return;
 
     const xterm = new Xterm({
       fontFamily: settings.terminalFontFamily,
       fontSize: settings.terminalFontSize,
       cursorBlink: true,
-      theme: settings.theme === 'light' ? lightTheme : draculaTheme,
+      theme: getTheme(),
       allowProposedApi: true,
+      allowTransparency: true, // Transparent background for glass effect
     });
 
     const fitAddon = new FitAddon();
@@ -113,31 +113,32 @@ export function Terminal({ sessionId, host, name }: TerminalProps) {
     fitAddonRef.current = fitAddon;
     searchAddonRef.current = searchAddon;
     
-    // Initial Dimensions
-    setDimensions({ rows: xterm.rows, cols: xterm.cols });
-    
     xterm.focus();
 
-    // --- Resize Logic ---
+    // Report initial size
+    onResize?.(xterm.cols, xterm.rows);
+
+    // Resize Logic
     const handleResize = () => {
         if(fitAddonRef.current) {
             fitAddonRef.current.fit();
             const { rows, cols } = xterm;
-            invoke('resize_terminal', { sessionId, rows, cols })
-                .then(() => setDimensions({ rows, cols }))
-                .catch(console.error);
+            onResize?.(cols, rows); // Update parent
+            invoke('resize_terminal', { sessionId, rows, cols }).catch(console.error);
         }
     };
 
     const resizeListener = xterm.onResize((size) => {
-        setDimensions({ rows: size.rows, cols: size.cols });
+        onResize?.(size.cols, size.rows); // Update parent
         invoke('resize_terminal', { sessionId, rows: size.rows, cols: size.cols }).catch(console.error);
     });
 
     window.addEventListener('resize', handleResize);
-    // --------------------
+    
+    // Delay initial resize to ensure container is ready
+    setTimeout(() => handleResize(), 100);
 
-    // --- Key Handlers (Search) ---
+    // Key Handlers (Search)
     xterm.attachCustomKeyEventHandler((event) => {
         if (event.ctrlKey && event.key === 'f' && event.type === 'keydown') {
             setShowSearch(prev => !prev);
@@ -146,7 +147,7 @@ export function Terminal({ sessionId, host, name }: TerminalProps) {
         return true;
     });
 
-    // --- Data Listener ---
+    // Data Listeners
     let unlistener: (() => void) | null = null;
     let isActive = true;
 
@@ -178,99 +179,58 @@ export function Terminal({ sessionId, host, name }: TerminalProps) {
     };
   }, [sessionId]);
 
-  // Update settings when they change
+  // Update Settings Effect
   useEffect(() => {
     if (xtermRef.current) {
-      xtermRef.current.options.fontFamily = settings.terminalFontFamily;
       xtermRef.current.options.fontSize = settings.terminalFontSize;
-      xtermRef.current.options.theme = settings.theme === 'light' ? lightTheme : draculaTheme;
+      xtermRef.current.options.fontFamily = settings.terminalFontFamily;
+      xtermRef.current.options.theme = getTheme();
+      
+      // Refit
+      if(fitAddonRef.current) fitAddonRef.current.fit();
     }
   }, [settings]);
 
-  // Search effect
+  // Search Logic
   useEffect(() => {
-    if (showSearch && searchText) {
-      searchAddonRef.current?.findNext(searchText);
-    } else {
-      searchAddonRef.current?.clearDecorations();
+    if (searchAddonRef.current) {
+        if (searchText) {
+            searchAddonRef.current.findNext(searchText, {
+                decorations: { matchOverviewRuler: '#8be9fd', activeMatchColorOverviewRuler: '#ff79c6' }
+            });
+        } else {
+            searchAddonRef.current.clearDecorations();
+        }
     }
-  }, [searchText, showSearch]);
+  }, [searchText]);
 
   const findNext = () => searchAddonRef.current?.findNext(searchText);
   const findPrev = () => searchAddonRef.current?.findPrevious(searchText);
 
   return (
-    <div className="flex flex-col h-full w-full">
-        {/* Terminal Area */}
-        <div className="flex-grow relative w-full overflow-hidden bg-[#282a36] dark:bg-[#282a36]">
-            <div ref={termRef} className="w-full h-full px-1" />
-            
-            {/* Search Bar Overlay */}
-            {showSearch && (
-                <div className="absolute top-2 right-4 z-20 flex items-center gap-1 bg-[#1e1f29] p-1 rounded-md border border-gray-600 shadow-lg">
-                    <Search className="h-4 w-4 text-gray-400 ml-2" />
-                    <Input 
-                        autoFocus
-                        placeholder="Find..." 
-                        className="h-7 w-32 border-none bg-transparent focus-visible:ring-0 text-sm text-gray-200 placeholder:text-gray-600"
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                if (e.shiftKey) findPrev();
-                                else findNext();
-                            }
-                            if (e.key === 'Escape') {
-                                setShowSearch(false);
-                                xtermRef.current?.focus();
-                            }
-                        }}
-                    />
-                    <div className="h-4 w-px bg-gray-600 mx-1" />
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-300" onClick={findPrev}>
-                        <ArrowUp className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-300" onClick={findNext}>
-                        <ArrowDown className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-red-500/20 hover:text-red-400 text-gray-300" onClick={() => {
-                        setShowSearch(false);
-                        setSearchText("");
-                        searchAddonRef.current?.clearDecorations();
-                        xtermRef.current?.focus();
-                    }}>
-                        <X className="h-3 w-3" />
-                    </Button>
-                </div>
-            )}
-        </div>
-
-        {/* Status Bar */}
-        <div className="h-8 bg-black border-t border-white/10 flex items-center justify-between px-4 text-[10px] text-zinc-500 font-mono select-none shrink-0">
-            <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                    <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", isConnected ? "bg-green-500" : "bg-red-500")} />
-                    <span className={isConnected ? "text-zinc-300" : "text-red-400"}>
-                        {isConnected ? "SSH-2.0" : "Disconnected"}
-                    </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-zinc-400">
-                    <Box className="h-3 w-3" />
-                    <span>{name}</span>
-                    <span className="text-zinc-600">({host})</span>
-                </div>
+    <div className="w-full h-full relative bg-transparent">
+        <div ref={termRef} className="w-full h-full px-2 pt-2" />
+        
+        {/* Search Overlay */}
+        {showSearch && (
+            <div className="absolute top-2 right-4 z-20 flex items-center gap-1 bg-[#1e1f29] p-1 rounded-md border border-white/10 shadow-lg">
+                <Search className="h-4 w-4 text-zinc-400 ml-2" />
+                <Input 
+                    autoFocus
+                    placeholder="Find..." 
+                    className="h-7 w-32 border-none bg-transparent focus-visible:ring-0 text-sm text-white"
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.shiftKey ? findPrev() : findNext(); }
+                        if (e.key === 'Escape') { setShowSearch(false); xtermRef.current?.focus(); }
+                    }}
+                />
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-white/10" onClick={findPrev}><ArrowUp className="h-3 w-3" /></Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-white/10" onClick={findNext}><ArrowDown className="h-3 w-3" /></Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-red-500/20 hover:text-red-400" onClick={() => setShowSearch(false)}><X className="h-3 w-3" /></Button>
             </div>
-
-            <div className="flex items-center gap-4">
-                <span>UTF-8</span>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 border border-zinc-700 rounded-[1px] flex items-center justify-center">
-                         <div className="w-1 h-1 bg-zinc-500 rounded-full" />
-                    </div>
-                    {dimensions.cols}x{dimensions.rows}
-                </div>
-            </div>
-        </div>
+        )}
     </div>
   );
 }
