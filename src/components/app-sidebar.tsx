@@ -45,7 +45,6 @@ export function AppSidebar({ activeView, onViewChange, onOpenSettings }: AppSide
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
