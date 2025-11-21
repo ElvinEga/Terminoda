@@ -37,7 +37,7 @@ interface TransferProgressPayload {
 
 export function SftpBrowser({ sessionId }: SftpBrowserProps) {
   const [files, setFiles] = useState<SftpFile[]>([]);
-  const [currentPath, setCurrentPath] = useState<string>("/root");
+  const [currentPath, setCurrentPath] = useState<string>("/");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<SftpFile | null>(null);
   const [transferState, setTransferState] = useState<TransferState | null>(null);
@@ -248,7 +248,7 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
                 <TableHead className="w-2/12">Size</TableHead>
                 <TableHead className="w-2/12">Modified</TableHead>
                 <TableHead className="w-2/12">Permissions</TableHead>
-              </TableRow>
+              TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (

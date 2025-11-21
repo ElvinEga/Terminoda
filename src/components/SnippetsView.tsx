@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { Search, Plus, Trash2, Edit, Code } from "lucide-react";
 import { toast } from "sonner";
-import { v4 as uuidv4 } from 'uuid';
 
 export interface Snippet {
   id: string;
@@ -44,7 +43,7 @@ export function SnippetsView() {
 
     const snippetToSave = {
       ...currentSnippet,
-      id: currentSnippet.id || uuidv4()
+      id: currentSnippet.id || crypto.randomUUID()
     };
 
     try {
