@@ -85,7 +85,7 @@ function App() {
   const renderMainContent = () => {
     switch (activeNavItem) {
       case 'dashboard':
-        return <DashboardView onConnect={handleConnect} />;
+        return <DashboardView onConnect={handleConnect} activeSessions={sessions} onViewChange={setActiveNavItem} />;
       case 'hosts':
         return <HostsView onConnect={handleConnect} />;
       case 'terminal':
@@ -108,7 +108,7 @@ function App() {
       case 'history':
         return <PlaceholderView title="History" icon={Icons.Activity} description="View connection logs." />;
       default:
-        return <DashboardView onConnect={handleConnect} />;
+        return <DashboardView onConnect={handleConnect} activeSessions={sessions} onViewChange={setActiveNavItem} />;
     }
   };
 

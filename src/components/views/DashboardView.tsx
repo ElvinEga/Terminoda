@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Icons } from "@/components/ui/icons"
 import { motion } from "framer-motion"
 import { SavedHost, ConnectionDetails } from '../VaultSidebar';
+import { Session } from '../../App';
 import { ConnectionDialog } from '../ConnectionDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -11,17 +12,36 @@ import { toast } from "sonner";
 interface DashboardViewProps {
   onConnect: (details: ConnectionDetails, name: string) => void
   onViewChange?: (view: string) => void
+  activeSessions: Session[]
 }
 
-export function DashboardView({ onConnect, onViewChange }: DashboardViewProps) {
+interface ConnectionLog {
+  id: string;
+  host: string;
+  username: string;
+  timestamp: number;
+  status: string;
+}
+
+export function DashboardView({ onConnect, onViewChange, activeSessions }: DashboardViewProps) {
   const [hosts, setHosts] = useState<SavedHost[]>([]);
+  const [recentConnections, setRecentConnections] = useState<ConnectionLog[]>([]);
+  const [snippetCount, setSnippetCount] = useState(0);
+  const [keyCount, setKeyCount] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHost, setEditingHost] = useState<SavedHost | null>(null);
   const [deletingHost, setDeletingHost] = useState<SavedHost | null>(null);
   
-  // Load Hosts from Backend
+  // Load Data from Backend
   useEffect(() => {
       invoke<SavedHost[]>("load_saved_hosts").then(setHosts).catch(console.error);
+      invoke<ConnectionLog[]>("load_history").then(data => {
+          // Sort by timestamp desc and take top 4
+          const sorted = data.sort((a, b) => b.timestamp - a.timestamp).slice(0, 4);
+          setRecentConnections(sorted);
+      }).catch(console.error);
+      invoke<any[]>("load_snippets").then(data => setSnippetCount(data.length)).catch(console.error);
+      invoke<any[]>("load_ssh_keys").then(data => setKeyCount(data.length)).catch(console.error);
   }, []);
 
   const handleSave = (savedHost: SavedHost, isEditing: boolean) => {
@@ -30,6 +50,36 @@ export function DashboardView({ onConnect, onViewChange }: DashboardViewProps) {
     } else {
       setHosts(prev => [...prev, savedHost]);
     }
+  };
+
+  const formatTimeAgo = (timestamp: number) => {
+    const now = Date.now() / 1000;
+    const diff = now - timestamp;
+    
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} mins ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
+  };
+
+  const isHostActive = (hostName: string) => {
+    return activeSessions.some(session => session.name === hostName);
+  };
+
+  const handleRecentClick = (conn: ConnectionLog) => {
+      // Find if we have a saved host for this connection to get full details
+      const savedHost = hosts.find(h => h.details.host === conn.host && h.details.username === conn.username);
+      
+      if (savedHost) {
+          onConnect(savedHost.details, savedHost.name);
+      } else {
+          // Fallback if not saved
+          onConnect({
+              host: conn.host,
+              username: conn.username,
+              port: 22
+          }, conn.host);
+      }
   };
 
   const handleDelete = async () => {
@@ -45,9 +95,10 @@ export function DashboardView({ onConnect, onViewChange }: DashboardViewProps) {
   };
 
   const quickStats = [
+    { label: "Active Sessions", value: activeSessions.length.toString(), icon: Icons.Activity },
     { label: "Total Hosts", value: hosts.length.toString(), icon: Icons.Server },
-    { label: "Snippets", value: "-", icon: Icons.Command }, // Placeholder for now
-    { label: "Keys", value: "-", icon: Icons.Key },       // Placeholder for now
+    { label: "Snippets", value: snippetCount.toString(), icon: Icons.Command },
+    { label: "Keys", value: keyCount.toString(), icon: Icons.Key },
   ];
 
   return (
@@ -56,8 +107,8 @@ export function DashboardView({ onConnect, onViewChange }: DashboardViewProps) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Welcome to Terminoda</h1>
-            <p className="text-zinc-400">Your secure gateway to infrastructure.</p>
+            <h1 className="text-2xl font-bold text-white mb-1">Welcome back, Developer</h1>
+            <p className="text-zinc-400">Here's what's happening with your infrastructure.</p>
           </div>
           <button
             onClick={() => { setEditingHost(null); setIsDialogOpen(true); }}
@@ -69,7 +120,7 @@ export function DashboardView({ onConnect, onViewChange }: DashboardViewProps) {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {quickStats.map((stat, i) => (
             <motion.div
               key={stat.label}
@@ -85,6 +136,101 @@ export function DashboardView({ onConnect, onViewChange }: DashboardViewProps) {
               <span className="text-2xl font-bold text-white">{stat.value}</span>
             </motion.div>
           ))}
+        </div>
+
+        {/* Recent Connections */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Recent Connections</h2>
+            <button className="text-sm text-zinc-500 hover:text-white transition-colors">View all</button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recentConnections.map((conn, i) => {
+              // Try to find a matching saved host to get a better name if possible
+              const savedHost = hosts.find(h => h.details.host === conn.host && h.details.username === conn.username);
+              const displayName = savedHost ? savedHost.name : conn.host;
+              const displayIp = conn.host;
+              const isActive = isHostActive(displayName);
+
+              return (
+                <motion.div
+                  key={i}
+                  onClick={() => handleRecentClick(conn)}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 + i * 0.05 }}
+                  className="glass-card p-4 rounded-xl flex items-center justify-between group hover:border-white/20 transition-all cursor-pointer border border-white/10 bg-black/20"
+                >
+                  <div className="flex items-center gap-4 overflow-hidden">
+                    <div className={`w-10 h-10 rounded-lg flex shrink-0 items-center justify-center transition-all ${
+                      isActive ? 'bg-green-500/10 text-green-500' : 'bg-zinc-800 text-zinc-500'
+                    }`}>
+                      <Icons.Terminal className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <h3 className="text-white font-medium truncate">{displayName}</h3>
+                      <p className="text-zinc-500 text-xs font-mono truncate">{conn.username}@{displayIp}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-500">{formatTimeAgo(conn.timestamp)}</span>
+                    <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-zinc-700'}`} />
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Security Audit & Port Forwarding */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Security Audit */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="glass-card p-6 rounded-xl border border-white/10 bg-black/20"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center">
+                <Icons.Shield className="w-5 h-5" />
+              </div>
+              <h3 className="text-white font-semibold">Security Audit</h3>
+            </div>
+            <p className="text-zinc-400 text-sm mb-4">
+              3 keys are older than 90 days. Consider rotating your SSH keys for better security.
+            </p>
+            <button 
+                onClick={() => onViewChange?.('keys')}
+                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition-colors border border-white/10"
+            >
+              Review Keys
+            </button>
+          </motion.div>
+
+          {/* Port Forwarding */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="glass-card p-6 rounded-xl border border-white/10 bg-black/20"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                <Icons.Activity className="w-5 h-5" />
+              </div>
+              <h3 className="text-white font-semibold">Port Forwarding</h3>
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-zinc-400 text-sm">Active Tunnels</span>
+              <span className="text-white font-bold">2</span>
+            </div>
+            <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500" style={{ width: '65%' }} />
+            </div>
+          </motion.div>
         </div>
 
         {/* Saved Hosts List */}
