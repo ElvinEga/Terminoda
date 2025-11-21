@@ -54,6 +54,8 @@ pub struct ConnectionDetails {
     #[serde(rename = "authMethod")]
     #[allow(dead_code)]
     pub auth_method: Option<String>,
+    pub keepalive_interval: Option<u32>,
+    pub timeout: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,6 +145,18 @@ async fn connect_ssh(
         info!(target = "connect_ssh", "TCP connected");
         let mut sess = Session::new().map_err(|e| e.to_string())?;
         sess.set_tcp_stream(tcp);
+
+        if let Some(timeout_ms) = details.timeout {
+             sess.set_timeout(timeout_ms);
+        } else {
+             sess.set_timeout(10_000);
+        }
+
+        if let Some(keepalive) = details.keepalive_interval {
+            if keepalive > 0 {
+                sess.set_keepalive(true, keepalive);
+            }
+        }
 
         info!(target = "connect_ssh", "Performing SSH handshake");
         sess.handshake().map_err(|e| {
@@ -556,7 +570,6 @@ async fn download_file(
         let session_state = session_entry.value();
 
         ensure_sftp(session_state)?;
-        info!(target = "sftp_upload", session = %session_id, local = %local_path, remote = %remote_path, "Starting upload");
         info!(target = "sftp_download", session = %session_id, remote = %remote_path, local = %local_path, "Starting download");
 
         let remote_path_buf = PathBuf::from(&remote_path);
@@ -606,7 +619,6 @@ async fn download_file(
         }
 
         info!(target = "sftp_download", session = %session_id, "Download complete");
-        info!(target = "sftp_upload", session = %session_id, "Upload complete");
         Ok(())
     })
     .await
@@ -633,6 +645,7 @@ async fn upload_file(
         let session_state = session_entry.value();
 
         ensure_sftp(session_state)?;
+        info!(target = "sftp_upload", session = %session_id, local = %local_path, remote = %remote_path, "Starting upload");
 
         let remote_path_buf = PathBuf::from(&remote_path);
         let mut remote_file = {
@@ -676,6 +689,7 @@ async fn upload_file(
             );
         }
 
+        info!(target = "sftp_upload", session = %session_id, "Upload complete");
         Ok(())
     })
     .await
@@ -723,6 +737,33 @@ async fn delete_item(
             } else {
                 sftp.unlink(path_obj).map_err(|e| e.to_string())?;
             }
+            Ok(())
+        } else {
+            Err("SFTP not initialized".to_string())
+        }
+    } else {
+        Err("Session not found".to_string())
+    }
+}
+
+#[tauri::command]
+async fn chmod_item(
+    session_id: String,
+    path: String,
+    mode: u32,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let uuid = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
+    
+    if let Some(session_state) = state.sessions.get(&uuid) {
+        let sftp_lock = session_state.sftp.lock().unwrap();
+        if let Some(sftp) = &*sftp_lock {
+            let path_obj = Path::new(&path);
+            
+            let mut stat = sftp.stat(path_obj).map_err(|e| e.to_string())?;
+            stat.perm = Some(mode);
+            
+            sftp.setstat(path_obj, stat).map_err(|e| e.to_string())?;
             Ok(())
         } else {
             Err("SFTP not initialized".to_string())
@@ -862,6 +903,7 @@ pub fn run() {
             load_snippets,
             save_snippet,
             delete_snippet,
+            chmod_item,
             create_directory,
             delete_item,
             rename_item,

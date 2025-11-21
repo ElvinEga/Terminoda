@@ -8,6 +8,8 @@ export interface ConnectionDetails {
   password?: string;
   private_key_path?: string;
   passphrase?: string;
+  keepalive_interval?: number;
+  timeout?: number;
 }
 
 export interface SavedHost {

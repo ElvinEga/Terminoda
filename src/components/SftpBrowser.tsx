@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Folder, File, ArrowUp, Loader2, Download, Upload, MoreVertical, FolderPlus, Trash2, Pencil } from "lucide-react";
+import { Folder, File, ArrowUp, Loader2, Download, Upload, MoreVertical, FolderPlus, Trash2, Pencil, KeyRound } from "lucide-react";
 
 interface SftpFile {
   name: string;
@@ -52,6 +52,8 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
   const [newFolderName, setNewFolderName] = useState("");
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  const [isPermOpen, setIsPermOpen] = useState(false);
+  const [permValue, setPermValue] = useState("755");
   const [fileToEdit, setFileToEdit] = useState<SftpFile | null>(null);
 
   const fetchFiles = async () => {
@@ -245,6 +247,34 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
     );
   };
 
+  const handleChmod = async () => {
+    if (!fileToEdit || !permValue) return;
+    
+    const mode = parseInt(permValue, 8);
+    if (isNaN(mode)) {
+        toast.error("Invalid permissions format. Use octal (e.g., 755)");
+        return;
+    }
+
+    const path = getFullPath(fileToEdit.name);
+    
+    try {
+        await invoke("chmod_item", { sessionId, path, mode });
+        toast.success("Permissions updated");
+        setIsPermOpen(false);
+        setFileToEdit(null);
+        fetchFiles();
+    } catch (e) {
+        toast.error(`Chmod failed: ${e}`);
+    }
+  };
+
+  const openPermDialog = (file: SftpFile) => {
+      setFileToEdit(file);
+      setPermValue(file.is_dir ? "755" : "644");
+      setIsPermOpen(true);
+  };
+
   const progressValue = transferState
     ? Math.min(
         100,
@@ -380,6 +410,9 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
                                 }}>
                                     <Pencil className="mr-2 h-4 w-4" /> Rename
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openPermDialog(file)}>
+                                    <KeyRound className="mr-2 h-4 w-4" /> Permissions
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDelete(file)} className="text-red-500 focus:text-red-500">
                                     <Trash2 className="mr-2 h-4 w-4" /> Delete
                                 </DropdownMenuItem>
@@ -427,6 +460,28 @@ export function SftpBrowser({ sessionId }: SftpBrowserProps) {
             <DialogFooter>
                 <Button variant="ghost" onClick={() => setIsRenameOpen(false)}>Cancel</Button>
                 <Button onClick={handleRename} className="bg-blue-600 hover:bg-blue-700">Rename</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permissions Dialog */}
+      <Dialog open={isPermOpen} onOpenChange={setIsPermOpen}>
+        <DialogContent className="bg-[#2b2d3b] border-gray-700 text-white">
+            <DialogHeader>
+                <DialogTitle>Change Permissions</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+                <label className="text-sm text-gray-400">Octal Mode (e.g., 755, 644)</label>
+                <Input 
+                    value={permValue} 
+                    onChange={(e) => setPermValue(e.target.value)} 
+                    className="bg-[#191a21] border-gray-600"
+                    maxLength={4}
+                />
+            </div>
+            <DialogFooter>
+                <Button variant="ghost" onClick={() => setIsPermOpen(false)}>Cancel</Button>
+                <Button onClick={handleChmod} className="bg-blue-600 hover:bg-blue-700">Apply</Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>

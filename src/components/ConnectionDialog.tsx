@@ -5,7 +5,7 @@ import { z } from "zod"
 import { invoke } from "@tauri-apps/api/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import { useState } from "react"
-import { FolderOpen } from "lucide-react"
+import { FolderOpen, Settings2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -38,6 +38,8 @@ const formSchema = z.object({
   password: z.string().optional(),
   private_key_path: z.string().optional(),
   passphrase: z.string().optional(),
+  keepalive_interval: z.coerce.number().nonnegative().default(60),
+  timeout: z.coerce.number().nonnegative().default(10000),
 }).refine((data) => {
   if (data.authMethod === "password" && !data.password) return false;
   if (data.authMethod === "key" && !data.private_key_path) return false;
@@ -60,7 +62,7 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
   const [saveError, setSaveError] = useState<string | null>(null);
   
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       name: "",
       group: "General",
@@ -71,6 +73,8 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
       password: "",
       private_key_path: "",
       passphrase: "",
+      keepalive_interval: 60,
+      timeout: 10000,
     },
   });
 
@@ -83,6 +87,8 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
           name: editingHost.name,
           group: editingHost.group || "General",
           ...editingHost.details,
+          keepalive_interval: editingHost.details.keepalive_interval ?? 60,
+          timeout: editingHost.details.timeout ?? 10000,
           authMethod: editingHost.details.private_key_path ? "key" : "password",
         });
       } else {
@@ -96,6 +102,8 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
           password: "",
           private_key_path: "",
           passphrase: "",
+          keepalive_interval: 60,
+          timeout: 10000,
         });
       }
       setSaveError(null);
@@ -122,6 +130,8 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
       password: authMethod === "password" ? baseDetails.password : undefined,
       private_key_path: authMethod === "key" ? baseDetails.private_key_path : undefined,
       passphrase: authMethod === "key" ? baseDetails.passphrase : undefined,
+      keepalive_interval: baseDetails.keepalive_interval,
+      timeout: baseDetails.timeout,
     };
 
     try {
@@ -231,60 +241,106 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
               )}
             />
 
-            <Tabs defaultValue="password" onValueChange={(v) => form.setValue("authMethod", v as "password" | "key")}>
+
+
+            <Tabs defaultValue="auth" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="password">Password</TabsTrigger>
-                <TabsTrigger value="key">Private Key</TabsTrigger>
+                <TabsTrigger value="auth">Authentication</TabsTrigger>
+                <TabsTrigger value="advanced" className="flex items-center gap-2">
+                    <Settings2 className="h-3 w-3" /> Advanced
+                </TabsTrigger>
               </TabsList>
               
-              <TabsContent value="password" className="space-y-3">
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <TabsContent value="auth" className="space-y-4 mt-4">
+                 <Tabs defaultValue={form.watch("authMethod")} onValueChange={(v) => form.setValue("authMethod", v as "password" | "key")}>
+                    <TabsList className="grid w-full grid-cols-2 h-8">
+                        <TabsTrigger value="password" className="text-xs">Password</TabsTrigger>
+                        <TabsTrigger value="key" className="text-xs">Private Key</TabsTrigger>
+                    </TabsList>
+                    
+                     <TabsContent value="password" className="space-y-3">
+                        <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                                <Input type="password" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    </TabsContent>
+                    <TabsContent value="key" className="space-y-3">
+                        <div className="flex gap-2 items-end">
+                            <FormField
+                                control={form.control}
+                                name="private_key_path"
+                                render={({ field }) => (
+                                <FormItem className="flex-grow">
+                                    <FormLabel>Key Path</FormLabel>
+                                    <FormControl>
+                                    <Input placeholder="/home/user/.ssh/id_rsa" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <Button type="button" variant="outline" onClick={handleFileSelect}>
+                                <FolderOpen className="h-4 w-4" />
+                            </Button>
+                        </div>
+                         <FormField
+                            control={form.control}
+                            name="passphrase"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Passphrase (Optional)</FormLabel>
+                                <FormControl>
+                                    <Input type="password" placeholder="Key passphrase" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </TabsContent>
+                 </Tabs>
               </TabsContent>
-              
-              <TabsContent value="key" className="space-y-3">
-                <div className="flex gap-2 items-end">
-                  <FormField
-                    control={form.control}
-                    name="private_key_path"
-                    render={({ field }) => (
-                      <FormItem className="flex-grow">
-                        <FormLabel>Key Path</FormLabel>
-                        <FormControl>
-                          <Input placeholder="/home/user/.ssh/id_rsa" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="button" variant="outline" onClick={handleFileSelect}>
-                    <FolderOpen className="h-4 w-4" />
-                  </Button>
+
+              <TabsContent value="advanced" className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="keepalive_interval"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Keep-Alive (Sec)</FormLabel>
+                            <FormControl>
+                            <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="timeout"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Timeout (ms)</FormLabel>
+                            <FormControl>
+                            <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="passphrase"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Passphrase (Optional)</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="Key passphrase" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="text-xs text-gray-500 bg-gray-50 dark:bg-[#2a2b3d] p-2 rounded">
+                    <p>Keep-Alive helps prevent the server from closing the connection due to inactivity.</p>
+                </div>
               </TabsContent>
             </Tabs>
 
