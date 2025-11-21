@@ -3,12 +3,12 @@ import { invoke } from '@tauri-apps/api/core';
 import { Toaster, toast } from 'sonner';
 import { ConnectionDetails } from './components/VaultSidebar';
 import { DashboardView } from './components/views/DashboardView';
-import { HostsView } from './components/views/HostsView';
-import { KeychainView } from './components/views/KeychainView';
-import { TerminalView } from './components/views/TerminalView'; // New View
-import { KnownHostsView } from './components/KnownHostsView';
-import { SnippetsView } from './components/SnippetsView';
-import { SettingsModal } from './components/SettingsModal';
+import { HostsView } from "@/components/views/HostsView";
+import { KeychainView } from "@/components/views/KeychainView";
+import { TerminalView } from "@/components/views/TerminalView";
+import { KnownHostsView } from "@/components/views/KnownHostsView";
+import { SnippetsView } from "@/components/views/SnippetsView";
+import { SettingsModal } from "@/components/SettingsModal";
 import { AppSidebar } from './components/AppSidebar';
 import { PlaceholderView } from './components/PlaceholderView';
 import { Icons } from "@/components/ui/icons";
