@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Search, Terminal, Plus, Settings, Server } from 'lucide-react';
+import { Search, Terminal, Plus, Settings, Server, Folder } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SavedHost, ConnectionDetails } from './VaultSidebar';
@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn } from '@/lib/utils';
 
 interface DashboardProps {
   onConnect: (details: ConnectionDetails, name: string) => void;
@@ -30,21 +31,22 @@ interface DashboardProps {
 export function Dashboard({ onConnect }: DashboardProps) {
   const [hosts, setHosts] = useState<SavedHost[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState<string>('All');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHost, setEditingHost] = useState<SavedHost | null>(null);
   const [deletingHost, setDeletingHost] = useState<SavedHost | null>(null);
 
   const loadHosts = async () => {
-    try {
-      const loadedHosts = await invoke<SavedHost[]>("load_saved_hosts");
-      setHosts(loadedHosts);
-    } catch (error) {
-      console.error("Failed to load hosts:", error);
-    }
+      try {
+        const loadedHosts = await invoke<SavedHost[]>("load_saved_hosts");
+        setHosts(loadedHosts);
+      } catch (error) {
+        console.error("Failed to load hosts:", error);
+      }
   };
-
+  
   useEffect(() => {
-    loadHosts();
+      loadHosts();
   }, []);
 
   const handleSave = (savedHost: SavedHost, isEditing: boolean) => {
@@ -69,11 +71,23 @@ export function Dashboard({ onConnect }: DashboardProps) {
     });
   };
 
-  const filteredHosts = hosts.filter(host => 
-    host.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    host.details.host.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    host.details.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Compute Groups
+  const groups = useMemo(() => {
+    const uniqueGroups = new Set(hosts.map(h => h.group || "General"));
+    return ["All", ...Array.from(uniqueGroups).sort()];
+  }, [hosts]);
+
+  // Filter Logic
+  const filteredHosts = hosts.filter(host => {
+    const matchesSearch = 
+      host.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      host.details.host.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      host.details.username.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesGroup = selectedGroup === 'All' || (host.group || "General") === selectedGroup;
+
+    return matchesSearch && matchesGroup;
+  });
 
   return (
     <div className="flex flex-col h-full bg-[#f4f5f7] dark:bg-[#1e1e2e] text-gray-900 dark:text-gray-100 p-6 overflow-y-auto">
@@ -88,84 +102,109 @@ export function Dashboard({ onConnect }: DashboardProps) {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="default" className="ml-4 bg-[#e2e8f0] text-gray-700 hover:bg-[#cbd5e1] dark:bg-[#313244] dark:text-gray-200 dark:hover:bg-[#45475a]">
-          CONNECT
-        </Button>
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 mb-8">
+      <div className="flex gap-2 mb-6">
         <Button 
           className="bg-[#4c566a] hover:bg-[#434c5e] text-white"
           onClick={() => { setEditingHost(null); setIsDialogOpen(true); }}
         >
           <Plus className="mr-2 h-4 w-4" /> NEW HOST
         </Button>
-        <Button variant="secondary" className="bg-[#4c566a] hover:bg-[#434c5e] text-white">
-          <Terminal className="mr-2 h-4 w-4" /> TERMINAL
-        </Button>
       </div>
 
-      {/* Groups (Placeholder for now) */}
+      {/* Groups */}
       <div className="mb-8">
         <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">Groups</h3>
-        <div className="bg-white dark:bg-[#2a2b3d] p-4 rounded-lg shadow-sm inline-block min-w-[200px]">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-md">
-              <Server className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <div className="font-medium">All Hosts</div>
-              <div className="text-xs text-gray-500">{hosts.length} Hosts</div>
-            </div>
-          </div>
+        <div className="flex gap-4 overflow-x-auto pb-2">
+          {groups.map(group => {
+            const count = group === 'All' 
+                ? hosts.length 
+                : hosts.filter(h => (h.group || "General") === group).length;
+            
+            return (
+                <div 
+                    key={group}
+                    onClick={() => setSelectedGroup(group)}
+                    className={cn(
+                        "min-w-[180px] cursor-pointer p-4 rounded-lg shadow-sm border transition-all",
+                        selectedGroup === group 
+                            ? "bg-blue-50 dark:bg-blue-900/20 border-blue-500" 
+                            : "bg-white dark:bg-[#2a2b3d] border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                    )}
+                >
+                    <div className="flex items-center gap-3">
+                        <div className={cn(
+                            "p-2 rounded-md",
+                            selectedGroup === group ? "bg-blue-500" : "bg-gray-200 dark:bg-gray-700"
+                        )}>
+                            {group === 'All' ? <Server className="h-5 w-5 text-white" /> : <Folder className="h-5 w-5 text-white" />}
+                        </div>
+                        <div>
+                            <div className="font-medium truncate max-w-[100px]">{group}</div>
+                            <div className="text-xs text-gray-500">{count} Hosts</div>
+                        </div>
+                    </div>
+                </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Hosts Grid */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">Hosts</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredHosts.map(host => (
-            <div 
-              key={host.id} 
-              className="group bg-white dark:bg-[#2a2b3d] p-4 rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer relative border border-transparent hover:border-blue-500"
-              onClick={() => onConnect(host.details, host.name)}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="bg-[#f97316] p-2 rounded-full">
-                    <Terminal className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-lg">{host.name}</div>
-                    <div className="text-xs text-gray-500">
-                      ssh, {host.details.username}
-                    </div>
-                  </div>
-                </div>
-                
-                <div onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Settings className="h-4 w-4 text-gray-400" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => { setEditingHost(host); setIsDialogOpen(true); }}>
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setDeletingHost(host)}>
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
+        <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">
+            {selectedGroup} Hosts
+        </h3>
+        {filteredHosts.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">
+                No hosts found in this group.
             </div>
-          ))}
-        </div>
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredHosts.map(host => (
+                <div 
+                key={host.id} 
+                className="group bg-white dark:bg-[#2a2b3d] p-4 rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer relative border border-transparent hover:border-blue-500"
+                onClick={() => onConnect(host.details, host.name)}
+                >
+                <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                    <div className="bg-[#f97316] p-2 rounded-full">
+                        <Terminal className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="overflow-hidden">
+                        <div className="font-semibold text-lg truncate">{host.name}</div>
+                        <div className="text-xs text-gray-500 flex flex-col">
+                            <span>{host.details.username}@{host.details.host}</span>
+                            {host.group && <span className="inline-block mt-1 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] w-fit">{host.group}</span>}
+                        </div>
+                    </div>
+                    </div>
+                    
+                    <div onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Settings className="h-4 w-4 text-gray-400" />
+                        </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => { setEditingHost(host); setIsDialogOpen(true); }}>
+                            Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setDeletingHost(host)}>
+                            Delete
+                        </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    </div>
+                </div>
+                </div>
+            ))}
+            </div>
+        )}
       </div>
 
       <ConnectionDialog
@@ -185,7 +224,7 @@ export function Dashboard({ onConnect }: DashboardProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
