@@ -91,6 +91,15 @@ pub struct KnownHostEntry {
     pub key_preview: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SshKeyEntry {
+    pub id: String,
+    pub name: String,
+    pub key_type: String, // e.g., "RSA 4096", "ED25519"
+    pub fingerprint: String,
+    pub created_at: u64,
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct TerminalOutputPayload {
     session_id: String,
@@ -129,7 +138,7 @@ impl From<uuid::Error> for TransferError {
     }
 }
 
-fn get_history_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
+fn get_history_path(_app_handle: &AppHandle) -> Result<PathBuf, String> {
     let config_dir = std::env::var("HOME")
         .map(|h| PathBuf::from(h).join(".config/terminoda"))
         .unwrap_or_else(|_| {
@@ -426,6 +435,15 @@ fn get_snippets_path(_app_handle: &AppHandle) -> Result<PathBuf, String> {
         fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
     }
     Ok(config_dir.join("snippets.json"))
+}
+
+fn get_keychain_path(_app_handle: &AppHandle) -> Result<PathBuf, String> {
+    let config_dir = std::env::var("HOME")
+        .map(|h| PathBuf::from(h).join(".config/terminoda"))
+        .unwrap_or_else(|_| {
+            PathBuf::from(std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string()))
+        });
+    Ok(config_dir.join("keychain.json"))
 }
 
 #[tauri::command]
@@ -933,6 +951,39 @@ fn load_known_hosts() -> Result<Vec<KnownHostEntry>, String> {
 }
 
 #[tauri::command]
+fn load_ssh_keys(app_handle: AppHandle) -> Result<Vec<SshKeyEntry>, String> {
+    let path = get_keychain_path(&app_handle)?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let keys: Vec<SshKeyEntry> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(keys)
+}
+
+#[tauri::command]
+fn save_ssh_key(key: SshKeyEntry, app_handle: AppHandle) -> Result<SshKeyEntry, String> {
+    let mut keys = load_ssh_keys(app_handle.clone())?;
+    keys.push(key.clone());
+    
+    let path = get_keychain_path(&app_handle)?;
+    let content = serde_json::to_string_pretty(&keys).map_err(|e| e.to_string())?;
+    fs::write(path, content).map_err(|e| e.to_string())?;
+    Ok(key)
+}
+
+#[tauri::command]
+fn delete_ssh_key(id: String, app_handle: AppHandle) -> Result<(), String> {
+    let mut keys = load_ssh_keys(app_handle.clone())?;
+    keys.retain(|k| k.id != id);
+    
+    let path = get_keychain_path(&app_handle)?;
+    let content = serde_json::to_string_pretty(&keys).map_err(|e| e.to_string())?;
+    fs::write(path, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 fn delete_known_host_entry(line_number: usize) -> Result<(), String> {
     let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE"))
         .map_err(|_| "Could not find home directory".to_string())?;
@@ -998,7 +1049,10 @@ pub fn run() {
             load_known_hosts,
             delete_known_host_entry,
             load_history,
-            clear_history
+            clear_history,
+            load_ssh_keys,
+            save_ssh_key,
+            delete_ssh_key
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

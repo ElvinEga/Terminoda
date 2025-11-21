@@ -4,6 +4,7 @@ import { Toaster, toast } from 'sonner';
 import { ConnectionDetails } from './components/VaultSidebar';
 import { DashboardView } from './components/views/DashboardView';
 import { HostsView } from './components/views/HostsView';
+import { KeychainView } from './components/views/KeychainView';
 import { TerminalView } from './components/views/TerminalView'; // New View
 import { KnownHostsView } from './components/KnownHostsView';
 import { SnippetsView } from './components/SnippetsView';
@@ -103,7 +104,7 @@ function App() {
       case 'known-hosts':
         return <KnownHostsView />;
       case 'keys':
-        return <PlaceholderView title="Keychain" icon={Icons.Key} description="Manage your SSH keys securely." />;
+        return <KeychainView />;
       case 'history':
         return <PlaceholderView title="History" icon={Icons.Activity} description="View connection logs." />;
       default:
