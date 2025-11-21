@@ -13,6 +13,7 @@ export interface ConnectionDetails {
 export interface SavedHost {
   id: string;
   name: string;
+  group?: string;
   details: ConnectionDetails;
 }
 

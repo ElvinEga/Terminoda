@@ -30,8 +30,9 @@ import type { SavedHost } from "./VaultSidebar"
 
 const formSchema = z.object({
   name: z.string().min(1, "Host name is required"),
+  group: z.string().optional(),
   host: z.string().min(1, "Host is required"),
-  port: z.coerce.number().int().min(1).max(65535).default(22),
+  port: z.coerce.number().min(1, "Port must be valid").min(1).max(65535).default(22),
   username: z.string().min(1, "Username is required"),
   authMethod: z.enum(["password", "key"]).default("password"),
   password: z.string().optional(),
@@ -62,6 +63,7 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      group: "General",
       host: "",
       port: 22,
       username: "",
@@ -79,12 +81,14 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
       if (isEditing && editingHost) {
         form.reset({
           name: editingHost.name,
+          group: editingHost.group || "General",
           ...editingHost.details,
           authMethod: editingHost.details.private_key_path ? "key" : "password",
         });
       } else {
         form.reset({
           name: "",
+          group: "General",
           host: "",
           port: 22,
           username: "",
@@ -111,37 +115,35 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
 
   async function onSubmit(values: FormValues) {
     setSaveError(null);
-    const { name, authMethod, ...baseDetails } = values;
+    const { name, group, authMethod, ...baseDetails } = values;
 
     const details = {
       ...baseDetails,
-      // Only include password if using password auth
       password: authMethod === "password" ? baseDetails.password : undefined,
-      // Only include key-related fields if using key auth
       private_key_path: authMethod === "key" ? baseDetails.private_key_path : undefined,
       passphrase: authMethod === "key" ? baseDetails.passphrase : undefined,
     };
 
-    const promise = isEditing && editingHost
-      ? invoke("update_host", { updatedHost: { id: editingHost.id, name, details } })
-      : invoke<SavedHost>("save_new_host", { name, details });
-
-    toast.promise(promise, {
-      loading: isEditing ? "Updating host..." : "Saving host...",
-      success: (result) => {
-        const savedData = isEditing
-          ? { id: editingHost!.id, name, details } as SavedHost
-          : result as SavedHost;
-        onSave(savedData, isEditing);
-        setIsOpen(false);
-        return isEditing ? "Host updated!" : "Host saved!";
-      },
-      error: (err) => {
-        const errorMsg = typeof err === 'string' ? err : String(err);
-        setSaveError(errorMsg);
-        return `Failed to save: ${errorMsg}`;
-      },
-    });
+    try {
+      const savedHost = isEditing && editingHost
+        ? await invoke<SavedHost>("update_host", { updatedHost: { id: editingHost.id, name, group, details } })
+        : await invoke<SavedHost>("save_new_host", { name, group, details, appHandle: null }); // appHandle is auto-injected by Tauri
+      
+      // For update_host, we might need to reconstruct the object if it returns void, but let's assume standard flow
+      // Actually update_host returns (), so we handle that in onSave
+      
+      if (isEditing && editingHost) {
+          onSave({ id: editingHost.id, name, group, details }, true);
+      } else {
+          onSave(savedHost, false);
+      }
+      
+      setIsOpen(false);
+      toast.success(isEditing ? "Connection updated" : "Connection saved");
+    } catch (error) {
+      console.error("Failed to save host:", error);
+      setSaveError(typeof error === "string" ? error : "Failed to save connection");
+    }
   }
 
   return (
@@ -156,19 +158,35 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Host Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="My Server" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            
+            <div className="flex gap-2">
+                <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                    <FormItem className="flex-grow">
+                    <FormLabel>Host Name</FormLabel>
+                    <FormControl>
+                        <Input placeholder="My Server" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="group"
+                render={({ field }) => (
+                    <FormItem className="w-1/3">
+                    <FormLabel>Group</FormLabel>
+                    <FormControl>
+                        <Input placeholder="General" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
 
             <div className="flex gap-2">
               <FormField

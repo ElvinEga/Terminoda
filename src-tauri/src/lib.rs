@@ -60,6 +60,7 @@ pub struct ConnectionDetails {
 pub struct SavedHost {
     pub id: String,
     pub name: String,
+    pub group: Option<String>,
     pub details: ConnectionDetails,
 }
 
@@ -379,6 +380,7 @@ fn load_saved_hosts(app_handle: AppHandle) -> Result<Vec<SavedHost>, String> {
 #[tauri::command]
 fn save_new_host(
     name: String,
+    group: Option<String>,
     details: ConnectionDetails,
     app_handle: AppHandle,
 ) -> Result<SavedHost, String> {
@@ -387,6 +389,7 @@ fn save_new_host(
     let new_host = SavedHost {
         id: Uuid::new_v4().to_string(),
         name,
+        group,
         details,
     };
 
