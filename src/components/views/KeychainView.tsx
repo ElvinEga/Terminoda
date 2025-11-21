@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Icons } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ interface SshKeyEntry {
   name: string;
   type: string;
   fingerprint: string;
+  path?: string;
   created_at: number;
 }
 
@@ -59,7 +61,7 @@ export function KeychainView() {
         name: newKeyName,
         type: newKeyType,
         fingerprint: mockFingerprint,
-        created_at: Date.now() / 1000
+        created_at: Math.floor(Date.now() / 1000)
     };
 
     try {
@@ -71,6 +73,41 @@ export function KeychainView() {
     } catch (err) {
         toast.error("Failed to save key");
     }
+  };
+
+  const handleImportKey = async () => {
+      try {
+          const selected = await open({
+              multiple: false,
+              filters: [{
+                  name: 'SSH Key',
+                  extensions: ['pem', 'pub', 'key', 'id_rsa', 'id_ed25519']
+              }]
+          });
+
+          if (selected && typeof selected === 'string') {
+              // For now, we just save the path and a mock fingerprint
+              // In a real app, we'd parse the key file
+              const fileName = selected.split(/[\\/]/).pop() || "Imported Key";
+              const mockFingerprint = "SHA256:" + Array.from({length: 40}, () => Math.floor(Math.random() * 36).toString(36)).join('');
+
+              const newKey: SshKeyEntry = {
+                  id: crypto.randomUUID(),
+                  name: fileName,
+                  type: "Imported",
+                  fingerprint: mockFingerprint,
+                  path: selected,
+                  created_at: Math.floor(Date.now() / 1000)
+              };
+
+              await invoke("save_ssh_key", { key: newKey });
+              setKeys(prev => [...prev, newKey]);
+              toast.success("Key imported successfully");
+          }
+      } catch (err) {
+          console.error(err);
+          toast.error("Failed to import key");
+      }
   };
 
   const handleDelete = async (id: string) => {
@@ -109,7 +146,10 @@ export function KeychainView() {
           <p className="text-zinc-400 text-sm">Manage your digital identities and audit security.</p>
         </div>
         <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition-colors border border-white/10 flex items-center gap-2">
+          <button 
+            onClick={handleImportKey}
+            className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition-colors border border-white/10 flex items-center gap-2"
+          >
             <Icons.Upload className="w-4 h-4" />
             Import Key
           </button>

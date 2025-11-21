@@ -98,6 +98,7 @@ pub struct SshKeyEntry {
     pub name: String,
     pub key_type: String, // e.g., "RSA 4096", "ED25519"
     pub fingerprint: String,
+    pub path: Option<String>,
     pub created_at: u64,
 }
 
@@ -444,6 +445,11 @@ fn get_keychain_path(_app_handle: &AppHandle) -> Result<PathBuf, String> {
         .unwrap_or_else(|_| {
             PathBuf::from(std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string()))
         });
+
+    if !config_dir.exists() {
+        fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+    }
+
     Ok(config_dir.join("keychain.json"))
 }
 
