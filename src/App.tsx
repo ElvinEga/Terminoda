@@ -9,7 +9,8 @@ import { TerminalView } from "@/components/views/TerminalView";
 import { KnownHostsView } from "@/components/views/KnownHostsView";
 import { SnippetsView } from "@/components/views/SnippetsView";
 import { SettingsModal } from "@/components/SettingsModal";
-import { AppSidebar } from './components/AppSidebar';
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { AppSidebar } from './components/app-sidebar';
 import { PlaceholderView } from './components/PlaceholderView';
 import { Icons } from "@/components/ui/icons";
 import { useSettings } from '@/context/SettingsContext';
@@ -113,77 +114,83 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden relative font-sans">
-      <AppSidebar 
-        activeView={activeNavItem} 
-        onViewChange={setActiveNavItem} 
-        onOpenSettings={() => setIsSettingsOpen(true)}
-      />
+    <SidebarProvider>
+      <div className="flex h-screen w-full bg-background text-foreground overflow-hidden relative font-sans">
+        <AppSidebar 
+          activeView={activeNavItem} 
+          onViewChange={setActiveNavItem} 
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
 
-      <main className="flex-1 relative overflow-hidden bg-background flex flex-col">
-        {/* Decorative gradient - only visible on dashboard/hosts pages mostly */}
-        {activeNavItem !== 'terminal' && (
-            <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none z-0" />
-        )}
+        <main className="flex-1 relative overflow-hidden bg-background flex flex-col">
+          <div className="absolute top-4 left-4 z-50">
+            <SidebarTrigger />
+          </div>
+          
+          {/* Decorative gradient - only visible on dashboard/hosts pages mostly */}
+          {activeNavItem !== 'terminal' && (
+              <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none z-0" />
+          )}
 
-        <AnimatePresence mode="wait">
-            <motion.div
-                key={activeNavItem}
+          <AnimatePresence mode="wait">
+              <motion.div
+                  key={activeNavItem}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="h-full w-full z-10"
+              >
+                  {renderMainContent()}
+              </motion.div>
+          </AnimatePresence>
+
+          {/* Connecting Overlay */}
+          <AnimatePresence>
+            {isConnecting && (
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="h-full w-full z-10"
-            >
-                {renderMainContent()}
-            </motion.div>
-        </AnimatePresence>
+                className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm"
+              >
+                <div className="flex flex-col items-center gap-6">
+                  <div className="relative w-24 h-24 flex items-center justify-center">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                      className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500/50"
+                    />
+                    <motion.div
+                      animate={{ rotate: -180 }}
+                      transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                      className="absolute inset-2 rounded-full border-t-2 border-l-2 border-purple-500/50"
+                    />
+                    <Icons.Server className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h3 className="text-xl font-medium text-white">Connecting to {connectingHost}...</h3>
+                    <p className="text-sm text-zinc-500 font-mono">Establishing secure tunnel</p>
+                  </div>
+                  <div className="w-64 h-1 bg-zinc-800 rounded-full overflow-hidden mt-4">
+                    <motion.div
+                      initial={{ x: "-100%" }}
+                      animate={{ x: "100%" }}
+                      transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                      className="h-full w-1/2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {/* Connecting Overlay */}
-        <AnimatePresence>
-          {isConnecting && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm"
-            >
-              <div className="flex flex-col items-center gap-6">
-                <div className="relative w-24 h-24 flex items-center justify-center">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                    className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500/50"
-                  />
-                  <motion.div
-                    animate={{ rotate: -180 }}
-                    transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                    className="absolute inset-2 rounded-full border-t-2 border-l-2 border-purple-500/50"
-                  />
-                  <Icons.Server className="w-8 h-8 text-white" />
-                </div>
-                <div className="text-center space-y-2">
-                  <h3 className="text-xl font-medium text-white">Connecting to {connectingHost}...</h3>
-                  <p className="text-sm text-zinc-500 font-mono">Establishing secure tunnel</p>
-                </div>
-                <div className="w-64 h-1 bg-zinc-800 rounded-full overflow-hidden mt-4">
-                  <motion.div
-                    initial={{ x: "-100%" }}
-                    animate={{ x: "100%" }}
-                    transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-                    className="h-full w-1/2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
-                  />
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-      </main>
-      
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-      <Toaster theme="dark" />
-    </div>
+        </main>
+        
+        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        <Toaster theme="dark" />
+      </div>
+    </SidebarProvider>
   );
 }
 

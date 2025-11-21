@@ -200,59 +200,10 @@ export function DashboardView({ onConnect, onViewChange, activeSessions }: Dashb
           </div>
         </div>
 
-        {/* Security Audit & Port Forwarding */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Security Audit */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-card p-6 rounded-xl border border-border"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center">
-                <Icons.Shield className="w-5 h-5" />
-              </div>
-              <h3 className="text-foreground font-semibold">Security Audit</h3>
-            </div>
-            <p className="text-muted-foreground text-sm mb-4">
-              3 keys are older than 90 days. Consider rotating your SSH keys for better security.
-            </p>
-            <button 
-                onClick={() => onViewChange?.('keys')}
-                className="px-4 py-2 bg-muted hover:bg-accent text-foreground rounded-lg text-sm font-medium transition-colors border border-border"
-            >
-              Review Keys
-            </button>
-          </motion.div>
-
-          {/* Port Forwarding */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="bg-card p-6 rounded-xl border border-border"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
-                <Icons.Activity className="w-5 h-5" />
-              </div>
-              <h3 className="text-foreground font-semibold">Port Forwarding</h3>
-            </div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-muted-foreground text-sm">Active Tunnels</span>
-              <span className="text-foreground font-bold">2</span>
-            </div>
-            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500" style={{ width: '65%' }} />
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Saved Hosts List */}
+            {/* Saved Hosts List */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Saved Hosts</h2>
+            <h2 className="text-lg font-semibold text-foreground">Hosts</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -307,6 +258,57 @@ export function DashboardView({ onConnect, onViewChange, activeSessions }: Dashb
             )}
           </div>
         </div>
+
+        {/* Security Audit & Port Forwarding */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Security Audit */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-card p-6 rounded-xl border border-border"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center">
+                <Icons.Shield className="w-5 h-5" />
+              </div>
+              <h3 className="text-foreground font-semibold">Security Audit</h3>
+            </div>
+            <p className="text-muted-foreground text-sm mb-4">
+              3 keys are older than 90 days. Consider rotating your SSH keys for better security.
+            </p>
+            <button 
+                onClick={() => onViewChange?.('keys')}
+                className="px-4 py-2 bg-muted hover:bg-accent text-foreground rounded-lg text-sm font-medium transition-colors border border-border"
+            >
+              Review Keys
+            </button>
+          </motion.div>
+
+          {/* Port Forwarding */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="bg-card p-6 rounded-xl border border-border"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                <Icons.Activity className="w-5 h-5" />
+              </div>
+              <h3 className="text-foreground font-semibold">Port Forwarding</h3>
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-muted-foreground text-sm">Active Tunnels</span>
+              <span className="text-foreground font-bold">2</span>
+            </div>
+            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500" style={{ width: '65%' }} />
+            </div>
+          </motion.div>
+        </div>
+
+    
       </div>
       
       {/* Connection Dialog (Logic Reused) */}
