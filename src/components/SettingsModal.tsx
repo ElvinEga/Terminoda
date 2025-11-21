@@ -96,7 +96,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Terminal emulation type</span>
-                      <Select defaultValue="xterm-256color">
+                      <Select 
+                        value={settings.terminalEmulation}
+                        onValueChange={(v) => updateSettings({ terminalEmulation: v })}
+                      >
                         <SelectTrigger className="w-[180px] h-8">
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>

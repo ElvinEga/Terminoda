@@ -6,6 +6,7 @@ interface Settings {
   theme: Theme;
   terminalFontSize: number;
   terminalFontFamily: string;
+  terminalEmulation: string;
   autoConnect: boolean;
   bellSound: boolean;
 }
@@ -19,6 +20,7 @@ const defaultSettings: Settings = {
   theme: 'dark',
   terminalFontSize: 14,
   terminalFontFamily: '"JetBrains Mono", Menlo, monospace',
+  terminalEmulation: 'xterm-256color',
   autoConnect: true,
   bellSound: false,
 };
@@ -26,17 +28,15 @@ const defaultSettings: Settings = {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  // Load from localStorage or use default
   const [settings, setSettings] = useState<Settings>(() => {
     const saved = localStorage.getItem('app-settings');
-    return saved ? JSON.parse(saved) : defaultSettings;
+    // Merge saved settings with default settings to ensure new keys (like terminalEmulation) exist
+    return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
   });
 
-  // Persist to localStorage
   useEffect(() => {
     localStorage.setItem('app-settings', JSON.stringify(settings));
     
-    // Apply Theme
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
     

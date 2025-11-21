@@ -111,6 +111,7 @@ impl From<uuid::Error> for TransferError {
 #[tauri::command]
 async fn connect_ssh(
     details: ConnectionDetails,
+    terminal_type: Option<String>,
     state: State<'_, AppState>,
     window: Window,
 ) -> Result<String, String> {
@@ -172,8 +173,9 @@ async fn connect_ssh(
             error!(target = "connect_ssh", error = %e, "Channel creation failed");
             e.to_string()
         })?;
+        let term_env = terminal_type.as_deref().unwrap_or("xterm-256color");
         channel
-            .request_pty("xterm-256color", None, None)
+            .request_pty(term_env, None, None)
             .map_err(|e| {
                 error!(target = "connect_ssh", error = %e, "PTY request failed");
                 e.to_string()

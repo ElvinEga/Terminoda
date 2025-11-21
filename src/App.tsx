@@ -11,6 +11,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { SnippetsView } from './components/SnippetsView';
 import { SnippetPalette } from './components/SnippetPalette';
 import { X, Terminal, Files, PanelRight } from 'lucide-react';
+import { useSettings } from '@/context/SettingsContext';
 
 interface Session {
   id: string;
@@ -25,10 +26,15 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showSnippets, setShowSnippets] = useState(false);
 
+  const { settings } = useSettings();
+
   const handleConnect = async (details: ConnectionDetails, name: string) => {
     console.log('[connect] invoking connect_ssh', details);
     toast.promise(
-      invoke<string>('connect_ssh', { details }),
+      invoke<string>('connect_ssh', { 
+        details, 
+        terminalType: settings.terminalEmulation 
+      }),
       {
         loading: `Connecting to ${details.host}...`,
         success: (newSessionId) => {
