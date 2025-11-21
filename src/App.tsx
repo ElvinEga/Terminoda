@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { AppSidebar } from "./components/AppSidebar";
 import { ConnectionDetails } from "./components/VaultSidebar";
-import { Dashboard } from "./components/Dashboard";
+import { DashboardView } from "./components/views/DashboardView";
 import { SettingsModal } from "./components/SettingsModal";
 import { SnippetsView } from "./components/SnippetsView";
 import { SnippetPalette } from "./components/SnippetPalette";
@@ -88,7 +88,11 @@ function App() {
         {/* Existing Tab/Content logic wrapped in a z-indexed div */}
         <div className="flex-1 z-10 relative flex flex-col h-full">
           {activeNavItem === 'dashboard' && !activeTab && (
-             <Dashboard onConnect={handleConnect} />
+             <DashboardView onConnect={handleConnect} />
+          )}
+
+          {activeNavItem === 'hosts' && !activeTab && (
+             <DashboardView onConnect={handleConnect} />
           )}
 
           {activeNavItem === 'snippets' && !activeTab && (

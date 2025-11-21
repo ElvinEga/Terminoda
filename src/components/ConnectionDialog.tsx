@@ -158,7 +158,7 @@ export function ConnectionDialog({ isOpen, setIsOpen, onSave, editingHost }: Con
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent className="sm:max-w-[500px] bg-[#0A0A0A] border-white/10 text-zinc-200">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Connection" : "New Connection"}</DialogTitle>
           <DialogDescription>
