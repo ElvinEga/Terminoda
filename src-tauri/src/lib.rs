@@ -384,7 +384,7 @@ fn resize_terminal(
     rows: u32,
     cols: u32,
     state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<(u32, u32), String> {
     let uuid = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
 
     if let Some(session) = state.sessions.get(&uuid) {
@@ -392,9 +392,10 @@ fn resize_terminal(
         channel
             .request_pty_size(cols, rows, None, None)
             .map_err(|e| e.to_string())?;
-        Ok(())
+        Ok((rows, cols))
     } else {
-        Ok(())
+        // Return input if session not found (UI sync only)
+        Ok((rows, cols))
     }
 }
 

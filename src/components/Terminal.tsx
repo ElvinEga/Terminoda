@@ -6,10 +6,12 @@ import { WebLinksAddon } from 'xterm-addon-web-links';
 import { SearchAddon } from 'xterm-addon-search';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
-import { Search, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { Search, ArrowUp, ArrowDown, X, Activity, Box } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
+// Theme definitions
 const draculaTheme = {
   background: '#282a36',
   foreground: '#f8f8f2',
@@ -36,30 +38,32 @@ const draculaTheme = {
 
 const lightTheme = {
   background: '#ffffff',
-  foreground: '#2e3440',
-  cursor: '#2e3440',
-  selectionBackground: '#d8dee9',
+  foreground: '#333333',
+  cursor: '#333333',
+  selectionBackground: '#e5e5e5',
   cursorAccent: '#ffffff',
-  black: '#3b4252',
-  red: '#bf616a',
-  green: '#a3be8c',
-  yellow: '#ebcb8b',
-  blue: '#81a1c1',
-  magenta: '#b48ead',
-  cyan: '#88c0d0',
-  white: '#e5e9f0',
-  brightBlack: '#4c566a',
-  brightRed: '#bf616a',
-  brightGreen: '#a3be8c',
-  brightYellow: '#ebcb8b',
-  brightBlue: '#81a1c1',
-  brightMagenta: '#b48ead',
-  brightCyan: '#8fbcbb',
-  brightWhite: '#eceff4',
+  black: '#000000',
+  red: '#cd3131',
+  green: '#0dbc79',
+  yellow: '#e5e510',
+  blue: '#2472c8',
+  magenta: '#bc3fbc',
+  cyan: '#11a8cd',
+  white: '#e5e5e5',
+  brightBlack: '#666666',
+  brightRed: '#cd3131',
+  brightGreen: '#14ce14',
+  brightYellow: '#b5ba00',
+  brightBlue: '#3b8eea',
+  brightMagenta: '#d670d6',
+  brightCyan: '#29b8db',
+  brightWhite: '#e5e5e5',
 };
 
 interface TerminalProps {
   sessionId: string;
+  host: string;
+  name: string;
 }
 
 interface TerminalOutputPayload {
@@ -67,25 +71,20 @@ interface TerminalOutputPayload {
   data: number[];
 }
 
-export function Terminal({ sessionId }: TerminalProps) {
+export function Terminal({ sessionId, host, name }: TerminalProps) {
   const termRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Xterm | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
   const { settings } = useSettings();
   
-  // Search State
+  // UI State
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState("");
-
-  const getTheme = () => {
-     if (settings.theme === 'dark') return draculaTheme;
-     if (settings.theme === 'light') return lightTheme;
-     
-     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-         return draculaTheme;
-     }
-     return lightTheme;
-  };
+  
+  // Status Bar State
+  const [dimensions, setDimensions] = useState({ rows: 0, cols: 0 });
+  const [isConnected, setIsConnected] = useState(true);
 
   useEffect(() => {
     if (!termRef.current || xtermRef.current) {
@@ -96,9 +95,8 @@ export function Terminal({ sessionId }: TerminalProps) {
       fontFamily: settings.terminalFontFamily,
       fontSize: settings.terminalFontSize,
       cursorBlink: true,
-      theme: getTheme(),
+      theme: settings.theme === 'light' ? lightTheme : draculaTheme,
       allowProposedApi: true,
-      bellStyle: settings.bellSound ? 'sound' : 'none',
     });
 
     const fitAddon = new FitAddon();
@@ -112,25 +110,43 @@ export function Terminal({ sessionId }: TerminalProps) {
     fitAddon.fit();
     
     xtermRef.current = xterm;
+    fitAddonRef.current = fitAddon;
     searchAddonRef.current = searchAddon;
+    
+    // Initial Dimensions
+    setDimensions({ rows: xterm.rows, cols: xterm.cols });
     
     xterm.focus();
 
-    // Custom Key Handling for Ctrl+F
+    // --- Resize Logic ---
+    const handleResize = () => {
+        if(fitAddonRef.current) {
+            fitAddonRef.current.fit();
+            const { rows, cols } = xterm;
+            invoke('resize_terminal', { sessionId, rows, cols })
+                .then(() => setDimensions({ rows, cols }))
+                .catch(console.error);
+        }
+    };
+
+    const resizeListener = xterm.onResize((size) => {
+        setDimensions({ rows: size.rows, cols: size.cols });
+        invoke('resize_terminal', { sessionId, rows: size.rows, cols: size.cols }).catch(console.error);
+    });
+
+    window.addEventListener('resize', handleResize);
+    // --------------------
+
+    // --- Key Handlers (Search) ---
     xterm.attachCustomKeyEventHandler((event) => {
         if (event.ctrlKey && event.key === 'f' && event.type === 'keydown') {
             setShowSearch(prev => !prev);
-            return false; // Prevent default to handle internally
+            return false; 
         }
         return true;
     });
 
-    const sendResize = (rows: number, cols: number) => {
-      invoke('resize_terminal', { sessionId, rows, cols }).catch(console.error);
-    };
-
-    sendResize(xterm.rows, xterm.cols);
-
+    // --- Data Listener ---
     let unlistener: (() => void) | null = null;
     let isActive = true;
 
@@ -138,120 +154,122 @@ export function Terminal({ sessionId }: TerminalProps) {
       try {
         unlistener = await listen<TerminalOutputPayload>('terminal-output', (event) => {
           if (isActive && event.payload.session_id === sessionId && xtermRef.current) {
-            try {
-              xtermRef.current.write(new Uint8Array(event.payload.data));
-            } catch (error) {
-              console.error('Error writing to terminal:', error);
-            }
+            xtermRef.current.write(new Uint8Array(event.payload.data));
           }
         });
       } catch (error) {
         console.error('Error setting up terminal listener:', error);
       }
     };
-
     setupListener();
 
     const onDataListener = xterm.onData((data) => {
       invoke('send_terminal_input', { sessionId, data }).catch(console.error);
     });
 
-    const resizeListener = xterm.onResize((size) => {
-      sendResize(size.rows, size.cols);
-    });
-
-    const resizeObserver = new ResizeObserver(() => {
-      if (fitAddon && termRef.current) {
-        fitAddon.fit();
-      }
-    });
-    if (termRef.current.parentElement) {
-      resizeObserver.observe(termRef.current.parentElement);
-    }
-
     return () => {
       isActive = false;
-      if (unlistener) {
-        unlistener();
-      }
+      if (unlistener) unlistener();
       resizeListener.dispose();
       onDataListener.dispose();
-      resizeObserver.disconnect();
+      window.removeEventListener('resize', handleResize);
       xterm.dispose();
       xtermRef.current = null;
     };
   }, [sessionId]);
 
-  // Update settings dynamically
+  // Update settings when they change
   useEffect(() => {
     if (xtermRef.current) {
-      xtermRef.current.options.fontSize = settings.terminalFontSize;
       xtermRef.current.options.fontFamily = settings.terminalFontFamily;
-      xtermRef.current.options.bellStyle = settings.bellSound ? 'sound' : 'none';
-      xtermRef.current.options.theme = getTheme();
-      const resizeEvent = new Event('resize');
-      window.dispatchEvent(resizeEvent); 
+      xtermRef.current.options.fontSize = settings.terminalFontSize;
+      xtermRef.current.options.theme = settings.theme === 'light' ? lightTheme : draculaTheme;
     }
-  }, [settings.terminalFontSize, settings.terminalFontFamily, settings.bellSound, settings.theme]);
+  }, [settings]);
 
-  // Handle Search Logic
+  // Search effect
   useEffect(() => {
-    if (searchAddonRef.current) {
-        if (searchText) {
-            searchAddonRef.current.findNext(searchText, {
-                decorations: {
-                    matchOverviewRuler: '#8be9fd',
-                    activeMatchColorOverviewRuler: '#ff79c6'
-                }
-            });
-        } else {
-            searchAddonRef.current.clearDecorations();
-        }
+    if (showSearch && searchText) {
+      searchAddonRef.current?.findNext(searchText);
+    } else {
+      searchAddonRef.current?.clearDecorations();
     }
-  }, [searchText]);
+  }, [searchText, showSearch]);
 
   const findNext = () => searchAddonRef.current?.findNext(searchText);
   const findPrev = () => searchAddonRef.current?.findPrevious(searchText);
 
   return (
-    <div ref={termRef} className="w-full h-full relative">
-        {showSearch && (
-            <div className="absolute top-2 right-16 z-20 flex items-center gap-1 bg-[#1e1f29] p-1 rounded-md border border-gray-600 shadow-lg animate-in fade-in slide-in-from-top-2">
-                <Search className="h-4 w-4 text-gray-400 ml-2" />
-                <Input 
-                    autoFocus
-                    placeholder="Find..." 
-                    className="h-7 w-32 border-none bg-transparent focus-visible:ring-0 text-sm"
-                    value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            if (e.shiftKey) findPrev();
-                            else findNext();
-                        }
-                        if (e.key === 'Escape') {
-                            setShowSearch(false);
-                            xtermRef.current?.focus();
-                        }
-                    }}
-                />
-                <div className="h-4 w-px bg-gray-600 mx-1" />
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={findPrev}>
-                    <ArrowUp className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={findNext}>
-                    <ArrowDown className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-red-500/20 hover:text-red-400" onClick={() => {
-                    setShowSearch(false);
-                    setSearchText("");
-                    searchAddonRef.current?.clearDecorations();
-                    xtermRef.current?.focus();
-                }}>
-                    <X className="h-3 w-3" />
-                </Button>
+    <div className="flex flex-col h-full w-full">
+        {/* Terminal Area */}
+        <div className="flex-grow relative w-full overflow-hidden bg-[#282a36] dark:bg-[#282a36]">
+            <div ref={termRef} className="w-full h-full px-1" />
+            
+            {/* Search Bar Overlay */}
+            {showSearch && (
+                <div className="absolute top-2 right-4 z-20 flex items-center gap-1 bg-[#1e1f29] p-1 rounded-md border border-gray-600 shadow-lg">
+                    <Search className="h-4 w-4 text-gray-400 ml-2" />
+                    <Input 
+                        autoFocus
+                        placeholder="Find..." 
+                        className="h-7 w-32 border-none bg-transparent focus-visible:ring-0 text-sm text-gray-200 placeholder:text-gray-600"
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                if (e.shiftKey) findPrev();
+                                else findNext();
+                            }
+                            if (e.key === 'Escape') {
+                                setShowSearch(false);
+                                xtermRef.current?.focus();
+                            }
+                        }}
+                    />
+                    <div className="h-4 w-px bg-gray-600 mx-1" />
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-300" onClick={findPrev}>
+                        <ArrowUp className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-300" onClick={findNext}>
+                        <ArrowDown className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-red-500/20 hover:text-red-400 text-gray-300" onClick={() => {
+                        setShowSearch(false);
+                        setSearchText("");
+                        searchAddonRef.current?.clearDecorations();
+                        xtermRef.current?.focus();
+                    }}>
+                        <X className="h-3 w-3" />
+                    </Button>
+                </div>
+            )}
+        </div>
+
+        {/* Status Bar */}
+        <div className="h-6 bg-[#191a21] border-t border-gray-700 flex items-center justify-between px-3 text-[10px] text-gray-400 select-none">
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                    <div className={cn("w-2 h-2 rounded-full", isConnected ? "bg-green-500" : "bg-red-500")} />
+                    <span className={cn("font-medium", isConnected ? "text-green-500" : "text-red-500")}>
+                        {isConnected ? "Connected" : "Disconnected"}
+                    </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <Box className="h-3 w-3" />
+                    <span>{name} ({host})</span>
+                </div>
             </div>
-        )}
+
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                    <Activity className="h-3 w-3" />
+                    <span>SSH-2.0</span>
+                </div>
+                <div className="font-mono">
+                    {dimensions.cols} x {dimensions.rows}
+                </div>
+            </div>
+        </div>
     </div>
   );
 }
