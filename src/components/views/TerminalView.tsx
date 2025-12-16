@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icons } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { Terminal } from "../Terminal"; // Real Terminal
@@ -11,7 +11,8 @@ interface TerminalViewProps {
   activeSessionId?: string;
   onSessionChange: (id: string) => void;
   onCloseSession: (id: string) => void;
-  onNewConnection: () => void; // To trigger dashboard/modal
+  onDuplicateSession: (id: string) => void; // Duplicate current session
+  onNewConnection: () => void; // To trigger hosts view for new host
 }
 
 export function TerminalView({ 
@@ -19,12 +20,77 @@ export function TerminalView({
     activeSessionId, 
     onSessionChange, 
     onCloseSession,
+    onDuplicateSession,
     onNewConnection 
 }: TerminalViewProps) {
   
   const [terminalDimensions, setTerminalDimensions] = useState({ cols: 80, rows: 24 });
   const [activeMode, setActiveMode] = useState<'terminal' | 'sftp'>('terminal');
   const [showSnippets, setShowSnippets] = useState(false);
+
+  // Hyprland-style keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Shift+T: Duplicate current terminal tab
+      if (e.ctrlKey && e.shiftKey && e.key === 'T' && activeSessionId) {
+        e.preventDefault();
+        onDuplicateSession(activeSessionId);
+        return;
+      }
+
+      // Ctrl+Shift+W: Close current tab
+      if (e.ctrlKey && e.shiftKey && e.key === 'W' && activeSessionId) {
+        e.preventDefault();
+        onCloseSession(activeSessionId);
+        return;
+      }
+
+      // Ctrl+Tab: Next tab
+      if (e.ctrlKey && e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+        const currentIndex = sessions.findIndex(s => s.id === activeSessionId);
+        if (currentIndex !== -1) {
+          const nextIndex = (currentIndex + 1) % sessions.length;
+          onSessionChange(sessions[nextIndex].id);
+        }
+        return;
+      }
+
+      // Ctrl+Shift+Tab: Previous tab
+      if (e.ctrlKey && e.shiftKey && e.key === 'Tab') {
+        e.preventDefault();
+        const currentIndex = sessions.findIndex(s => s.id === activeSessionId);
+        if (currentIndex !== -1) {
+          const prevIndex = currentIndex === 0 ? sessions.length - 1 : currentIndex - 1;
+          onSessionChange(sessions[prevIndex].id);
+        }
+        return;
+      }
+
+      // Ctrl+1 through Ctrl+9: Switch to specific tab
+      if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= 9 && sessions[num - 1]) {
+          e.preventDefault();
+          onSessionChange(sessions[num - 1].id);
+          return;
+        }
+      }
+
+      // Alt+1 through Alt+9: Alternative for switching tabs
+      if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= 9 && sessions[num - 1]) {
+          e.preventDefault();
+          onSessionChange(sessions[num - 1].id);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sessions, activeSessionId, onSessionChange, onCloseSession, onDuplicateSession, onNewConnection]);
 
   // If no sessions, show placeholder
   if (sessions.length === 0) {
@@ -45,7 +111,7 @@ export function TerminalView({
     <div className="flex flex-col h-full bg-background">
       {/* Tab Bar */}
       <div className="flex items-center bg-background border-b border-border px-2 pt-2 gap-1 shrink-0">
-        {sessions.map((session) => (
+        {sessions.map((session, index) => (
           <div
             key={session.id}
             onClick={() => onSessionChange(session.id)}
@@ -57,18 +123,24 @@ export function TerminalView({
             )}
           >
             <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+            {index < 9 && (
+              <span className="text-[10px] opacity-50 font-mono">{index + 1}</span>
+            )}
             <span className="truncate flex-1">{session.name}</span>
             <button 
                 onClick={(e) => { e.stopPropagation(); onCloseSession(session.id); }}
                 className="opacity-0 group-hover:opacity-100 hover:bg-accent rounded p-0.5 transition-opacity"
+                title="Close Tab (Ctrl+Shift+W)"
             >
               <Icons.Close className="w-3 h-3" />
             </button>
           </div>
         ))}
         <button 
-            onClick={onNewConnection}
+            onClick={() => activeSessionId && onDuplicateSession(activeSessionId)}
             className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md ml-1 transition-colors"
+            title="Duplicate Tab (Ctrl+Shift+T)"
+            disabled={!activeSessionId}
         >
           <Icons.Plus className="w-4 h-4" />
         </button>
@@ -135,6 +207,12 @@ export function TerminalView({
           </span>
           <span className="text-muted-foreground">{activeSession?.host}</span>
           <span className="text-muted-foreground">UTF-8</span>
+          <span 
+            className="text-muted-foreground/60 cursor-help border-l border-border pl-4" 
+            title="Keyboard Shortcuts:&#10;Ctrl+Shift+T - Duplicate Tab&#10;Ctrl+Shift+W - Close Tab&#10;Ctrl+1-9 - Switch to Tab&#10;Ctrl+Tab - Next Tab&#10;Ctrl+Shift+Tab - Previous Tab"
+          >
+            ⌨ Shortcuts
+          </span>
         </div>
         <div className="flex items-center gap-4">
           <span>CPU: 12%</span> {/* Mock Data from design */}
