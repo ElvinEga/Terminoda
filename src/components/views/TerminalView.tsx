@@ -5,6 +5,7 @@ import { Terminal } from "../Terminal"; // Real Terminal
 import { Session } from "../../App"; // We'll export this interface from App.tsx next
 import { SftpBrowser } from "../SftpBrowser";
 import { SnippetPalette } from "../SnippetPalette";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 interface TerminalViewProps {
   sessions: Session[];
