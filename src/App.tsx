@@ -21,6 +21,7 @@ export interface Session {
   id: string;
   host: string;
   name: string;
+  connectionDetails: ConnectionDetails;
 }
 
 function App() {
@@ -49,6 +50,7 @@ function App() {
                 id: newSessionId,
                 host: details.host,
                 name,
+                connectionDetails: details,
             };
             setSessions(prev => [...prev, newSession]);
             setActiveSessionId(newSessionId); // Set active session
@@ -83,6 +85,17 @@ function App() {
     }
   };
 
+  const handleDuplicateSession = async (sessionId: string) => {
+    const sourceSession = sessions.find(s => s.id === sessionId);
+    if (!sourceSession) return;
+
+    // Create a new session with the same connection details
+    const tabNumber = sessions.filter(s => s.name.startsWith(sourceSession.name.split(' #')[0])).length + 1;
+    const newName = `${sourceSession.name.split(' #')[0]} #${tabNumber}`;
+    
+    await handleConnect(sourceSession.connectionDetails, newName);
+  };
+
   const renderMainContent = () => {
     switch (activeNavItem) {
       case 'dashboard':
@@ -97,6 +110,7 @@ function App() {
                 activeSessionId={activeSessionId}
                 onSessionChange={setActiveSessionId}
                 onCloseSession={handleCloseSession}
+                onDuplicateSession={handleDuplicateSession}
                 onNewConnection={() => setActiveNavItem('hosts')}
             />
         );
