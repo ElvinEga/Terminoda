@@ -159,7 +159,7 @@ function App() {
         <main className="flex-1 relative overflow-hidden bg-background flex flex-col">
           {/* Header with SidebarTrigger - only show on non-terminal views */}
           {activeNavItem !== "terminal" && (
-            <div className="h-12 flex items-center px-4 border-b border-border shrink-0">
+            <div className="h-10 flex items-center px-4 border-b border-border shrink-0">
               <SidebarTrigger />
             </div>
           )}
